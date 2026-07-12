@@ -1,14 +1,25 @@
 #include <Arduino.h>
+#include <BLSD20Modbus.h>
+#include "Config.h"
+#include "RoofController.h"
+#include "SerialLink.h"
 
-void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  Serial.begin(115200);
+ModbusRTU bus(Serial1);
+BLSD20Modbus motor(bus, RoofConfig::MODBUS_SLAVE_ID);
+RoofController roof(motor);
+SerialLink link(roof, Serial);
+
+void setup()
+{
+    Serial.begin(115200);
+    bus.begin(RoofConfig::MODBUS_BAUD, SERIAL_8E1, Pins::MODBUS_DE);
+
+    roof.begin();
+    link.begin();
 }
 
-void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(500);
-  Serial.println("SkyHub BLSD20 Teensy Controller alive");
+void loop()
+{
+    roof.update();
+    link.update();
 }
