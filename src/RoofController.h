@@ -18,7 +18,8 @@ enum class RoofState : uint8_t
     Homing,
     Opening,
     Closing,
-    Fault
+    Fault,
+    Restarting
 };
 
 // Owns all safety-relevant I/O (buttons, limit switches) and the motor.
@@ -38,6 +39,7 @@ public:
     bool requestStop();
     bool requestHome();
     bool requestSaveSettings(); // one-time provisioning: saveSettings() + restart()
+    bool requestRestart();      // reboot the BLSD20 only, then re-apply the runtime config
 
     RoofMode mode() const { return _mode; }
     RoofState state() const { return _state; }
@@ -48,6 +50,12 @@ public:
     uint16_t motorCurrentMa() const { return _lastCurrent; }
     bool hasFault() const { return _state == RoofState::Fault; }
     const char* faultReason() const { return _faultReason; }
+    uint16_t lastErrorFlags() const { return _lastErrorFlags; }
+
+    // True after a RESTART, until the roof next fully closes (which
+    // re-zeroes the controller's position counter and confirms it's back in
+    // sync). Informational only -- OPEN/CLOSE are never blocked by this.
+    bool calibStale() const { return _calibStale; }
 
     static const char* modeToString(RoofMode m);
     static const char* stateToString(RoofState s);
@@ -62,6 +70,7 @@ private:
     void applyDefaultConfig();
     void loadCalibration();
     void saveCalibration();
+    void refreshCalibrationAtLimit(bool closedEnd);
 
     void updateManualHold();
     void updateAutoMove();
@@ -82,6 +91,7 @@ private:
     const char* _faultReason = "";
 
     bool _homed = false;
+    bool _calibStale = false;
     int32_t _closedPositionCounts = 0;
     int32_t _openPositionCounts = 0;
 
@@ -89,9 +99,19 @@ private:
     uint32_t _moveStartedMs = 0;
     bool _slowdownApplied = false;
 
+    // Manual-mode button arbitration: a lone press is armed for a short
+    // grace window before it actually starts a move, so a genuine
+    // Open+Close-together combo can be told apart from a single press.
+    uint32_t _comboHoldStartMs = 0;
+    int8_t _armedDir = 0; // 0 none, +1 open pending, -1 close pending
+    uint32_t _armedPressMs = 0;
+
     int32_t _lastPosition = 0;
     uint16_t _lastSpeed = 0;
     uint16_t _lastCurrent = 0;
+    uint16_t _lastErrorFlags = 0;
     uint32_t _lastPositionPollMs = 0;
     uint8_t _commFailCount = 0;
+
+    uint32_t _restartReapplyAtMs = 0;
 };

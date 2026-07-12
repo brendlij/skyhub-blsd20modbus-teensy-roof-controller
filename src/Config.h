@@ -7,22 +7,23 @@
 namespace Pins
 {
     // RS-485 (Modbus). Serial1 hardware pins RX1=0 / TX1=1 are fixed by the
-    // Teensy 4.1 UART, only the transceiver DE pin is configurable.
-    constexpr int8_t MODBUS_DE = 2;
+    // Teensy 4.1 UART. The Waveshare "TTL TO RS485 (B)" converter switches
+    // direction automatically, so no DE/driver-enable GPIO is needed here.
+    constexpr int8_t MODBUS_DE = -1;
 
     // Same physical buttons are read differently depending on Mode: edge
     // triggered in Auto, hold-to-run in Manual.
-    constexpr uint8_t BTN_OPEN = 3;
-    constexpr uint8_t BTN_STOP = 4;
-    constexpr uint8_t BTN_CLOSE = 5;
+    constexpr uint8_t BTN_OPEN = 2;
+    constexpr uint8_t BTN_STOP = 3;
+    constexpr uint8_t BTN_CLOSE = 4;
 
     // Toggle switch: tied to GND = Manual, floating/pulled-up = Auto.
-    constexpr uint8_t MODE_SWITCH = 6;
+    constexpr uint8_t MODE_SWITCH = 5;
 
     // Endschalter, wired directly into the Teensy (not the motor controller)
     // so they remain a hard safety cutoff even if the Modbus link is unwell.
-    constexpr uint8_t LIMIT_OPEN = 7;
-    constexpr uint8_t LIMIT_CLOSE = 8;
+    constexpr uint8_t LIMIT_OPEN = 6;
+    constexpr uint8_t LIMIT_CLOSE = 7;
 }
 
 namespace RoofConfig
@@ -64,4 +65,22 @@ namespace RoofConfig
     constexpr uint32_t HOMING_TIMEOUT_MS = 60000;
     constexpr uint32_t MOVE_TIMEOUT_MS = 120000;
     constexpr uint8_t MAX_COMM_FAILURES = 3;
+
+    // Time to let the BLSD20 finish rebooting after restart() before we
+    // resume sending it configuration writes.
+    constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 800;
+
+    // A freshly observed open-end position is only re-persisted to EEPROM if
+    // it differs from the stored value by more than this many counts, so
+    // ordinary Hall-sensor jitter between cycles doesn't wear the flash.
+    constexpr int32_t CALIBRATION_DRIFT_TOLERANCE_COUNTS = 50;
+
+    // Manual mode: hold Open+Close together (from Idle) for this long to
+    // trigger a HOME run without going through the serial link.
+    constexpr uint32_t HOME_COMBO_HOLD_MS = 3000;
+
+    // A lone button press only starts a manual move once this grace window
+    // has passed without the other button also coming down -- otherwise the
+    // first button pressed would always win the race against the combo.
+    constexpr uint32_t MANUAL_COMBO_GRACE_MS = 150;
 }

@@ -52,6 +52,42 @@ void RoofController::saveCalibration()
     EEPROM.put(EEPROM_ADDR, blob);
 }
 
+// Called every time a limit switch is actually reached, not just during an
+// explicit HOME run. This lets the calibration self-heal after a BLSD20
+// restart resets its Hall counter: the next ordinary full open/close
+// naturally re-syncs that endpoint, without requiring a dedicated re-home.
+//
+// The close end is always trustworthy to re-zero directly: resetPosition()
+// sets the counter to 0 at wherever the motor physically is right now, no
+// matter what reference frame it was counting in before. The open end is
+// only a raw count *relative to that zero*, so a fresh open reading is only
+// meaningful once the zero itself is known-good again -- i.e. not while
+// _calibStale (set by a restart) is still true. The stored open count
+// remains valid across a restart regardless, since the physical travel
+// distance between the two switches doesn't change.
+void RoofController::refreshCalibrationAtLimit(bool closedEnd)
+{
+    if (closedEnd)
+    {
+        _motor.resetPosition();
+        if (_closedPositionCounts != 0)
+        {
+            _closedPositionCounts = 0;
+            saveCalibration();
+        }
+        _calibStale = false;
+    }
+    else if (!_calibStale)
+    {
+        int32_t pos = _motor.getPosition();
+        if (abs(pos - _openPositionCounts) > RoofConfig::CALIBRATION_DRIFT_TOLERANCE_COUNTS)
+        {
+            _openPositionCounts = pos;
+            saveCalibration();
+        }
+    }
+}
+
 void RoofController::begin()
 {
     _btnOpen.begin(Pins::BTN_OPEN, RoofConfig::DEBOUNCE_MS);
@@ -101,13 +137,21 @@ void RoofController::update()
     {
     case RoofState::Homing:
         updateHoming();
+        checkMotorHealth();
         break;
     case RoofState::Opening:
     case RoofState::Closing:
         if (_mode == RoofMode::Auto)
         {
             updateAutoMove();
-            checkMotorHealth();
+        }
+        checkMotorHealth();
+        break;
+    case RoofState::Restarting:
+        if (millis() >= _restartReapplyAtMs)
+        {
+            applyDefaultConfig();
+            _state = RoofState::Idle;
         }
         break;
     default:
@@ -119,37 +163,73 @@ void RoofController::updateManualHold()
 {
     if (_state == RoofState::Fault) return;
 
-    if (_btnOpen.wasPressed() && _state == RoofState::Idle)
-    {
-        if (startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
-            _state = RoofState::Opening;
-    }
-    else if (_btnOpen.wasReleased() && _state == RoofState::Opening)
-    {
-        stopMotor(false);
-        _state = RoofState::Idle;
-    }
+    bool openHeld = _btnOpen.isActive();
+    bool closeHeld = _btnClose.isActive();
 
-    if (_btnClose.wasPressed() && _state == RoofState::Idle)
+    if (_state == RoofState::Idle)
     {
-        if (startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
-            _state = RoofState::Closing;
+        if (openHeld && closeHeld)
+        {
+            // Combo: both held together -> arm a HOME instead of a move.
+            _armedDir = 0;
+            if (_comboHoldStartMs == 0)
+            {
+                _comboHoldStartMs = millis();
+            }
+            else if (millis() - _comboHoldStartMs >= RoofConfig::HOME_COMBO_HOLD_MS)
+            {
+                requestHome();
+                _comboHoldStartMs = 0;
+            }
+        }
+        else
+        {
+            _comboHoldStartMs = 0;
+
+            if (_btnOpen.wasPressed()) { _armedDir = 1; _armedPressMs = millis(); }
+            if (_btnClose.wasPressed()) { _armedDir = -1; _armedPressMs = millis(); }
+
+            if (_armedDir == 1 && !openHeld) _armedDir = 0;   // released before grace elapsed
+            if (_armedDir == -1 && !closeHeld) _armedDir = 0;
+
+            if (_armedDir != 0 && millis() - _armedPressMs >= RoofConfig::MANUAL_COMBO_GRACE_MS)
+            {
+                if (_armedDir == 1 && startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
+                    _state = RoofState::Opening;
+                else if (_armedDir == -1 && startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
+                    _state = RoofState::Closing;
+                _armedDir = 0;
+            }
+        }
     }
-    else if (_btnClose.wasReleased() && _state == RoofState::Closing)
+    else
     {
-        stopMotor(false);
-        _state = RoofState::Idle;
+        _armedDir = 0;
+        _comboHoldStartMs = 0;
+
+        if (_state == RoofState::Opening && !openHeld)
+        {
+            stopMotor(false);
+            _state = RoofState::Idle;
+        }
+        else if (_state == RoofState::Closing && !closeHeld)
+        {
+            stopMotor(false);
+            _state = RoofState::Idle;
+        }
     }
 
     // Hard safety cutoff even while under manual (hold) control.
     if (_state == RoofState::Opening && _limitOpen.isActive())
     {
         stopMotor(false);
+        if (_homed) refreshCalibrationAtLimit(false);
         _state = RoofState::Idle;
     }
     if (_state == RoofState::Closing && _limitClose.isActive())
     {
         stopMotor(false);
+        if (_homed) refreshCalibrationAtLimit(true);
         _state = RoofState::Idle;
     }
 }
@@ -170,6 +250,7 @@ void RoofController::updateAutoMove()
         if (_limitOpen.isActive())
         {
             stopMotor(false);
+            refreshCalibrationAtLimit(false);
             _state = RoofState::Idle;
             return;
         }
@@ -185,6 +266,7 @@ void RoofController::updateAutoMove()
         if (_limitClose.isActive())
         {
             stopMotor(false);
+            refreshCalibrationAtLimit(true);
             _state = RoofState::Idle;
             return;
         }
@@ -212,6 +294,8 @@ void RoofController::updateHoming()
             stopMotor(false);
             _motor.resetPosition();
             _closedPositionCounts = 0;
+            _calibStale = false;
+            saveCalibration();
             _homingStep = HomingStep::SeekOpen;
             _moveStartedMs = millis();
             if (!startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_HOMING))
@@ -250,6 +334,7 @@ void RoofController::updatePositionPoll()
     _lastPosition = _motor.getPosition();
     _lastSpeed = _motor.getSpeed();
     _lastCurrent = _motor.getCurrent();
+    _lastErrorFlags = _motor.getErrorFlags();
 
     if (_motor.lastResult() == ModbusResult::Success)
     {
@@ -306,6 +391,11 @@ bool RoofController::requestOpen()
     if (_state != RoofState::Idle) return false;
     if (!_homed) return false;
     if (_limitOpen.isActive()) return false;
+    if (_motor.hasError())
+    {
+        enterFault("motor error flag set");
+        return false;
+    }
 
     if (!startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Opening;
@@ -321,6 +411,11 @@ bool RoofController::requestClose()
     if (_state != RoofState::Idle) return false;
     if (!_homed) return false;
     if (_limitClose.isActive()) return false;
+    if (_motor.hasError())
+    {
+        enterFault("motor error flag set");
+        return false;
+    }
 
     if (!startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Closing;
@@ -340,6 +435,11 @@ bool RoofController::requestStop()
 bool RoofController::requestHome()
 {
     if (_state != RoofState::Idle) return false;
+    if (_motor.hasError())
+    {
+        enterFault("motor error flag set");
+        return false;
+    }
 
     _homed = false;
     _homingStep = HomingStep::SeekClose;
@@ -356,6 +456,23 @@ bool RoofController::requestSaveSettings()
     bool ok = _motor.saveSettings();
     ok = _motor.restart() && ok;
     return ok;
+}
+
+// Reboots the BLSD20 without persisting anything first, so it also clears
+// whatever's currently latched in its ERROR register (e.g. after an
+// emergencyStop()/HARD_STOP). Since nothing was saved, the reboot reverts
+// the controller to its last-saved flash config, so we re-push our runtime
+// config once it's back up.
+bool RoofController::requestRestart()
+{
+    if (_state != RoofState::Idle && _state != RoofState::Fault) return false;
+    if (!_motor.restart()) return false;
+
+    _state = RoofState::Restarting;
+    _faultReason = "";
+    _calibStale = true;
+    _restartReapplyAtMs = millis() + RoofConfig::RESTART_REAPPLY_DELAY_MS;
+    return true;
 }
 
 int8_t RoofController::percentOpen() const
@@ -390,6 +507,7 @@ const char* RoofController::stateToString(RoofState s)
     case RoofState::Opening: return "OPENING";
     case RoofState::Closing: return "CLOSING";
     case RoofState::Fault: return "FAULT";
+    case RoofState::Restarting: return "RESTARTING";
     }
     return "?";
 }

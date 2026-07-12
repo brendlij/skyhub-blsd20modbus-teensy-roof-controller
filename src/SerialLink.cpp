@@ -48,6 +48,7 @@ void SerialLink::handleLine(const String& lineIn)
     else if (line == "STOP") ok = _roof.requestStop();
     else if (line == "HOME") ok = _roof.requestHome();
     else if (line == "SAVE") ok = _roof.requestSaveSettings();
+    else if (line == "RESTART") ok = _roof.requestRestart();
     else if (line == "STATUS")
     {
         printStatus();
@@ -72,6 +73,8 @@ void SerialLink::printStatus()
     _port.print(RoofController::stateToString(_roof.state()));
     _port.print(" homed=");
     _port.print(_roof.isHomed() ? 1 : 0);
+    _port.print(" calib_stale=");
+    _port.print(_roof.calibStale() ? 1 : 0);
     _port.print(" percent=");
     _port.print(_roof.percentOpen());
     _port.print(" pos=");
@@ -84,6 +87,8 @@ void SerialLink::printStatus()
     {
         _port.print(" fault=");
         _port.print(_roof.faultReason());
+        _port.print(" errflags=0x");
+        _port.print(_roof.lastErrorFlags(), HEX);
     }
     _port.println();
 }
