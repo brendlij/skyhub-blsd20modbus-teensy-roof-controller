@@ -8,7 +8,8 @@
 enum class RoofMode : uint8_t
 {
     Auto,
-    Manual
+    Manual,
+    Off // 3-position switch center: lockout, no OPEN/CLOSE/HOME accepted
 };
 
 enum class RoofState : uint8_t
@@ -71,6 +72,7 @@ private:
     void loadCalibration();
     void saveCalibration();
     void refreshCalibrationAtLimit(bool closedEnd);
+    RoofMode readModeSwitch() const;
 
     void updateManualHold();
     void updateAutoMove();
@@ -84,7 +86,7 @@ private:
 
     BLSD20Modbus& _motor;
 
-    DebouncedInput _btnOpen, _btnStop, _btnClose, _modeSwitch, _limitOpen, _limitClose;
+    DebouncedInput _btnOpen, _btnStop, _btnClose, _modeSwitchAuto, _modeSwitchManual, _limitOpen, _limitClose;
 
     RoofMode _mode = RoofMode::Auto;
     RoofState _state = RoofState::Uninitialized;

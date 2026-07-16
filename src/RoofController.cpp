@@ -88,16 +88,28 @@ void RoofController::refreshCalibrationAtLimit(bool closedEnd)
     }
 }
 
+RoofMode RoofController::readModeSwitch() const
+{
+    bool autoLeg = _modeSwitchAuto.isActive();
+    bool manualLeg = _modeSwitchManual.isActive();
+    if (manualLeg && !autoLeg) return RoofMode::Manual;
+    if (autoLeg && !manualLeg) return RoofMode::Auto;
+    // Center position grounds neither leg; both active simultaneously would
+    // mean a wiring fault. Either way, fail safe into lockout.
+    return RoofMode::Off;
+}
+
 void RoofController::begin()
 {
     _btnOpen.begin(Pins::BTN_OPEN, RoofConfig::DEBOUNCE_MS);
     _btnStop.begin(Pins::BTN_STOP, RoofConfig::DEBOUNCE_MS);
     _btnClose.begin(Pins::BTN_CLOSE, RoofConfig::DEBOUNCE_MS);
-    _modeSwitch.begin(Pins::MODE_SWITCH, RoofConfig::DEBOUNCE_MS);
+    _modeSwitchAuto.begin(Pins::MODE_SWITCH_AUTO, RoofConfig::DEBOUNCE_MS);
+    _modeSwitchManual.begin(Pins::MODE_SWITCH_MANUAL, RoofConfig::DEBOUNCE_MS);
     _limitOpen.begin(Pins::LIMIT_OPEN, RoofConfig::DEBOUNCE_MS);
     _limitClose.begin(Pins::LIMIT_CLOSE, RoofConfig::DEBOUNCE_MS);
 
-    _mode = _modeSwitch.isActive() ? RoofMode::Manual : RoofMode::Auto;
+    _mode = readModeSwitch();
 
     applyDefaultConfig();
     loadCalibration();
@@ -110,11 +122,12 @@ void RoofController::update()
     _btnOpen.update();
     _btnStop.update();
     _btnClose.update();
-    _modeSwitch.update();
+    _modeSwitchAuto.update();
+    _modeSwitchManual.update();
     _limitOpen.update();
     _limitClose.update();
 
-    _mode = _modeSwitch.isActive() ? RoofMode::Manual : RoofMode::Auto;
+    _mode = readModeSwitch();
 
     updatePositionPoll();
 
@@ -123,14 +136,25 @@ void RoofController::update()
         requestStop();
     }
 
-    if (_mode == RoofMode::Auto)
+    switch (_mode)
     {
+    case RoofMode::Auto:
         if (_btnOpen.wasPressed()) requestOpen();
         if (_btnClose.wasPressed()) requestClose();
-    }
-    else
-    {
+        break;
+    case RoofMode::Manual:
         updateManualHold();
+        break;
+    case RoofMode::Off:
+        // Lockout: force-stop any move that was already running rather than
+        // just refusing new ones, so turning the switch to Off is an
+        // immediate, unconditional halt.
+        if (_state == RoofState::Opening || _state == RoofState::Closing || _state == RoofState::Homing)
+        {
+            stopMotor(false);
+            _state = RoofState::Idle;
+        }
+        break;
     }
 
     switch (_state)
@@ -434,6 +458,7 @@ bool RoofController::requestStop()
 
 bool RoofController::requestHome()
 {
+    if (_mode == RoofMode::Off) return false;
     if (_state != RoofState::Idle) return false;
     if (_motor.hasError())
     {
@@ -493,6 +518,7 @@ const char* RoofController::modeToString(RoofMode m)
     {
     case RoofMode::Auto: return "AUTO";
     case RoofMode::Manual: return "MANUAL";
+    case RoofMode::Off: return "OFF";
     }
     return "?";
 }

@@ -1,7 +1,7 @@
 #include "SerialLink.h"
 #include "Config.h"
 
-SerialLink::SerialLink(RoofController& roof, Stream& port) : _roof(roof), _port(port) {}
+SerialLink::SerialLink(RoofController& roof, StatusLed& led, Stream& port) : _roof(roof), _led(led), _port(port) {}
 
 void SerialLink::begin()
 {
@@ -49,6 +49,9 @@ void SerialLink::handleLine(const String& lineIn)
     else if (line == "HOME") ok = _roof.requestHome();
     else if (line == "SAVE") ok = _roof.requestSaveSettings();
     else if (line == "RESTART") ok = _roof.requestRestart();
+    else if (line == "LED ON") { _led.setEnabled(true); ok = true; }
+    else if (line == "LED OFF") { _led.setEnabled(false); ok = true; }
+    else if (line == "LED TOGGLE") { _led.toggle(); ok = true; }
     else if (line == "STATUS")
     {
         printStatus();
@@ -83,6 +86,8 @@ void SerialLink::printStatus()
     _port.print(_roof.motorSpeedRpm());
     _port.print(" current=");
     _port.print(_roof.motorCurrentMa());
+    _port.print(" led=");
+    _port.print(_led.isEnabled() ? 1 : 0);
     if (_roof.hasFault())
     {
         _port.print(" fault=");

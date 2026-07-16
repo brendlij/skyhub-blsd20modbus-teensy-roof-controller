@@ -17,13 +17,27 @@ namespace Pins
     constexpr uint8_t BTN_STOP = 3;
     constexpr uint8_t BTN_CLOSE = 4;
 
-    // Toggle switch: tied to GND = Manual, floating/pulled-up = Auto.
-    constexpr uint8_t MODE_SWITCH = 5;
+    // 3-position rotary switch (2NO 2NC), e.g. Nimomo 19mm: one leg grounds
+    // MODE_SWITCH_AUTO in the Auto position, the other grounds
+    // MODE_SWITCH_MANUAL in the Manual position; the center position grounds
+    // neither, which reads as RoofMode::Off (lockout).
+    constexpr uint8_t MODE_SWITCH_AUTO = 5;
+    constexpr uint8_t MODE_SWITCH_MANUAL = 12;
 
     // Endschalter, wired directly into the Teensy (not the motor controller)
     // so they remain a hard safety cutoff even if the Modbus link is unwell.
     constexpr uint8_t LIMIT_OPEN = 6;
     constexpr uint8_t LIMIT_CLOSE = 7;
+
+    // Status RGB LED (e.g. AZDelivery KY-016), common cathode: common pin to
+    // GND, each color pin driven HIGH through the module's onboard resistors.
+    constexpr uint8_t LED_R = 8;
+    constexpr uint8_t LED_G = 9;
+    constexpr uint8_t LED_B = 10;
+
+    // Momentary push button: toggles the status LED on/off (a Fault still
+    // always blinks red regardless, see StatusLed::update).
+    constexpr uint8_t LED_BUTTON = 11;
 }
 
 namespace RoofConfig

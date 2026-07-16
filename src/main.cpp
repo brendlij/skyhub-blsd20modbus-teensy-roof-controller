@@ -3,11 +3,13 @@
 #include "Config.h"
 #include "RoofController.h"
 #include "SerialLink.h"
+#include "StatusLed.h"
 
 ModbusRTU bus(Serial1);
 BLSD20Modbus motor(bus, RoofConfig::MODBUS_SLAVE_ID);
 RoofController roof(motor);
-SerialLink link(roof, Serial);
+StatusLed statusLed;
+SerialLink link(roof, statusLed, Serial);
 
 void setup()
 {
@@ -16,10 +18,12 @@ void setup()
 
     roof.begin();
     link.begin();
+    statusLed.begin(Pins::LED_R, Pins::LED_G, Pins::LED_B, Pins::LED_BUTTON, RoofConfig::DEBOUNCE_MS);
 }
 
 void loop()
 {
     roof.update();
     link.update();
+    statusLed.update(roof);
 }
