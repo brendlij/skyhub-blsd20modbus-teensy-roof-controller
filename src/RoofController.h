@@ -58,6 +58,12 @@ public:
     // sync). Informational only -- OPEN/CLOSE are never blocked by this.
     bool calibStale() const { return _calibStale; }
 
+    // Best-effort read of the BLSD20's own HARD_STOP input (DI_HARD_STOP).
+    // Purely informational -- the hardware E-stop loop already stops the
+    // motor without any help from the Teensy; this just lets that trip be
+    // reported upstream (e.g. to the Pi5).
+    bool hardStopActive() const { return _lastHardStopInput; }
+
     static const char* modeToString(RoofMode m);
     static const char* stateToString(RoofState s);
 
@@ -79,6 +85,7 @@ private:
     void updateHoming();
     void updatePositionPoll();
     void checkMotorHealth();
+    void updateWatchdogRelay();
 
     void enterFault(const char* reason);
     void stopMotor(bool emergency);
@@ -87,6 +94,7 @@ private:
     BLSD20Modbus& _motor;
 
     DebouncedInput _btnOpen, _btnStop, _btnClose, _modeSwitchAuto, _modeSwitchManual, _limitOpen, _limitClose;
+    DebouncedInput _slowOpen, _slowClose;
 
     RoofMode _mode = RoofMode::Auto;
     RoofState _state = RoofState::Uninitialized;
@@ -114,6 +122,7 @@ private:
     uint16_t _lastErrorFlags = 0;
     uint32_t _lastPositionPollMs = 0;
     uint8_t _commFailCount = 0;
+    bool _lastHardStopInput = false;
 
     uint32_t _restartReapplyAtMs = 0;
 };

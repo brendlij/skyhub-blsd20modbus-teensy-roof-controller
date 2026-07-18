@@ -88,6 +88,8 @@ void SerialLink::printStatus()
     _port.print(_roof.motorCurrentMa());
     _port.print(" led=");
     _port.print(_led.isEnabled() ? 1 : 0);
+    _port.print(" hardstop=");
+    _port.print(_roof.hardStopActive() ? 1 : 0);
     if (_roof.hasFault())
     {
         _port.print(" fault=");

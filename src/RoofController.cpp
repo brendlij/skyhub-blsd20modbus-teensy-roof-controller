@@ -108,6 +108,11 @@ void RoofController::begin()
     _modeSwitchManual.begin(Pins::MODE_SWITCH_MANUAL, RoofConfig::DEBOUNCE_MS);
     _limitOpen.begin(Pins::LIMIT_OPEN, RoofConfig::DEBOUNCE_MS);
     _limitClose.begin(Pins::LIMIT_CLOSE, RoofConfig::DEBOUNCE_MS);
+    _slowOpen.begin(Pins::SLOW_OPEN, RoofConfig::DEBOUNCE_MS);
+    _slowClose.begin(Pins::SLOW_CLOSE, RoofConfig::DEBOUNCE_MS);
+
+    pinMode(Pins::MODBUS_WATCHDOG_RELAY, OUTPUT);
+    digitalWrite(Pins::MODBUS_WATCHDOG_RELAY, LOW); // fail-safe until comms are proven healthy
 
     _mode = readModeSwitch();
 
@@ -126,10 +131,13 @@ void RoofController::update()
     _modeSwitchManual.update();
     _limitOpen.update();
     _limitClose.update();
+    _slowOpen.update();
+    _slowClose.update();
 
     _mode = readModeSwitch();
 
     updatePositionPoll();
+    updateWatchdogRelay();
 
     if (_btnStop.wasPressed())
     {
@@ -266,9 +274,6 @@ void RoofController::updateAutoMove()
         return;
     }
 
-    int32_t range = abs(_openPositionCounts - _closedPositionCounts);
-    int32_t marginCounts = (int32_t)(range * RoofConfig::SLOWDOWN_FRACTION);
-
     if (_state == RoofState::Opening)
     {
         if (_limitOpen.isActive())
@@ -278,8 +283,7 @@ void RoofController::updateAutoMove()
             _state = RoofState::Idle;
             return;
         }
-        int32_t remaining = abs(_openPositionCounts - _lastPosition);
-        if (!_slowdownApplied && remaining <= marginCounts)
+        if (!_slowdownApplied && _slowOpen.isActive())
         {
             _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
             _slowdownApplied = true;
@@ -294,8 +298,7 @@ void RoofController::updateAutoMove()
             _state = RoofState::Idle;
             return;
         }
-        int32_t remaining = abs(_closedPositionCounts - _lastPosition);
-        if (!_slowdownApplied && remaining <= marginCounts)
+        if (!_slowdownApplied && _slowClose.isActive())
         {
             _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
             _slowdownApplied = true;
@@ -368,6 +371,21 @@ void RoofController::updatePositionPoll()
     {
         _commFailCount++;
     }
+
+    // Informational only: the hardware E-stop loop trips BLSD20 HARD_STOP
+    // directly, without Teensy involvement. Doesn't affect _commFailCount.
+    _lastHardStopInput = _motor.readHardStopInput();
+}
+
+// Keeps the watchdog relay energized only while Modbus comms are healthy.
+// Its contact sits in series inside the hardware E-stop loop, so a comm
+// loss -- or the Teensy itself crashing/resetting, since the pin defaults
+// LOW at boot -- breaks the loop and hard-stops the motor independently of
+// any command the Teensy would otherwise have to send over Modbus.
+void RoofController::updateWatchdogRelay()
+{
+    bool healthy = _commFailCount < RoofConfig::MAX_COMM_FAILURES;
+    digitalWrite(Pins::MODBUS_WATCHDOG_RELAY, healthy ? HIGH : LOW);
 }
 
 void RoofController::checkMotorHealth()
@@ -421,9 +439,10 @@ bool RoofController::requestOpen()
         return false;
     }
 
-    if (!startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_AUTO_FAST)) return false;
+    bool startSlow = _slowOpen.isActive();
+    if (!startMove(RoofConfig::DIR_OPEN, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Opening;
-    _slowdownApplied = false;
+    _slowdownApplied = startSlow;
     _moveStartedMs = millis();
     return true;
 }
@@ -441,9 +460,10 @@ bool RoofController::requestClose()
         return false;
     }
 
-    if (!startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_AUTO_FAST)) return false;
+    bool startSlow = _slowClose.isActive();
+    if (!startMove(RoofConfig::DIR_CLOSE, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Closing;
-    _slowdownApplied = false;
+    _slowdownApplied = startSlow;
     _moveStartedMs = millis();
     return true;
 }

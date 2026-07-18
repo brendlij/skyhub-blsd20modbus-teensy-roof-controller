@@ -29,6 +29,21 @@ namespace Pins
     constexpr uint8_t LIMIT_OPEN = 6;
     constexpr uint8_t LIMIT_CLOSE = 7;
 
+    // Inductive slowdown switches, one per side, mounted inboard of
+    // LIMIT_OPEN/LIMIT_CLOSE. Mark the point where an auto move drops from
+    // SPEED_AUTO_FAST to SPEED_AUTO_SLOW, replacing the old counts-based
+    // guess. Full speed is allowed anywhere between the two.
+    constexpr uint8_t SLOW_OPEN = 14;
+    constexpr uint8_t SLOW_CLOSE = 15;
+
+    // Drives a relay whose contact sits in series inside the hardware E-stop
+    // loop (LIMIT_OPEN's outer twin -> LIMIT_CLOSE's outer twin -> this
+    // relay -> E-stop button -> BLSD20 HARD_STOP input). Energized only
+    // while Modbus comms are healthy, so a comm loss or a Teensy crash/reset
+    // (pin defaults LOW at boot) breaks the loop and hard-stops the motor
+    // entirely outside of Modbus.
+    constexpr uint8_t MODBUS_WATCHDOG_RELAY = 16;
+
     // Status RGB LED (e.g. AZDelivery KY-016), common cathode: common pin to
     // GND, each color pin driven HIGH through the module's onboard resistors.
     constexpr uint8_t LED_R = 8;
@@ -50,12 +65,6 @@ namespace RoofConfig
     constexpr uint16_t SPEED_AUTO_SLOW = 500;
     constexpr uint16_t SPEED_MANUAL = 800;
     constexpr uint16_t SPEED_HOMING = 500;
-
-    // Fraction of the calibrated travel range, at each end, where an auto
-    // move drops from SPEED_AUTO_FAST to SPEED_AUTO_SLOW before the limit
-    // switch. Speed changes take effect immediately since acceleration and
-    // deceleration are disabled in the drive config below.
-    constexpr float SLOWDOWN_FRACTION = 0.08f;
 
     // A homing run producing less travel than this is rejected as bogus
     // (e.g. a limit switch that never triggered).
