@@ -39,6 +39,17 @@ Per side (Open/Close), from inboard to outboard:
 
    Any break in this chain (over-travel past the operational limit, E-stop pressed, or the watchdog relay dropping out) hard-stops the motor directly at the BLSD20, with no Teensy or Modbus involvement. The Teensy still polls `DI_HARD_STOP` (`RoofController::hardStopActive()`) purely for status reporting upstream (see `hardstop=` in the serial `STATUS` line).
 
+   The two outer E-stop limit switches use their **NC** contact (closed at rest, opens on trip or on a broken wire — fails safe either way).
+
+## Watchdog relay module
+
+`MODBUS_WATCHDOG_RELAY` (pin 16) drives a 1-channel opto-isolated relay module (`SRD-DC03V-SL-C` relay, `EL817` opto, 3–3.3 V logic, high-level trigger — e.g. the common "3V relay module for ESP8266"):
+
+- `VCC` → Teensy `3V3` (not 5V), `GND` → Teensy `GND`, `IN` → pin 16
+- `JP1`/`JP2` jumpers left in place (single supply; no need for the logic/coil sides to be separately powered here)
+- Module is high-level triggered, matching the code's `HIGH` = energized/healthy convention directly — no inversion needed
+- Wired into the E-stop chain via its **COM + NO** contacts (closed only while energized/healthy), see above
+
 ## Motor controller (BLSD20)
 
 - RS-485 Modbus RTU, slave ID `RoofConfig::MODBUS_SLAVE_ID`, 115200 baud, 8E1.
