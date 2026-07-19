@@ -21,7 +21,7 @@ Roof/blind controller on a Teensy 4.1, driving a BLSD20 BLDC motor controller ov
 | 12 | MODE_SWITCH_MANUAL | right position of the rotary switch: C → GND, NO → this pin; center position grounds neither → `RoofMode::Off` (lockout) |
 | 14 | SLOW_OPEN | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW` |
 | 15 | SLOW_CLOSE | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW` |
-| 16 | MODBUS_WATCHDOG_RELAY | output; energized only while Modbus comms are healthy |
+| 16 | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy |
 
 All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debounced in software (see [src/DebouncedInput.h](src/DebouncedInput.h)).
 
