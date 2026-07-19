@@ -11,14 +11,14 @@ Roof/blind controller on a Teensy 4.1, driving a BLSD20 BLDC motor controller ov
 | 2 | BTN_OPEN | edge-triggered in Auto, hold-to-run in Manual |
 | 3 | BTN_STOP | |
 | 4 | BTN_CLOSE | edge-triggered in Auto, hold-to-run in Manual |
-| 5 | MODE_SWITCH_AUTO | one leg of the 3-position rotary switch (2NO 2NC) |
+| 5 | MODE_SWITCH_AUTO | left position of the 3-position rotary switch: C → GND, NO → this pin |
 | 6 | LIMIT_OPEN | inductive, operational stop (Auto mode), read by Teensy |
 | 7 | LIMIT_CLOSE | inductive, operational stop (Auto mode), read by Teensy |
 | 8 | LED_R | status RGB LED, common cathode |
 | 9 | LED_G | status RGB LED |
 | 10 | LED_B | status RGB LED |
 | 11 | LED_BUTTON | toggles status LED on/off |
-| 12 | MODE_SWITCH_MANUAL | other leg of the rotary switch; center position grounds neither → `RoofMode::Off` (lockout) |
+| 12 | MODE_SWITCH_MANUAL | right position of the rotary switch: C → GND, NO → this pin; center position grounds neither → `RoofMode::Off` (lockout) |
 | 14 | SLOW_OPEN | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW` |
 | 15 | SLOW_CLOSE | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW` |
 | 16 | MODBUS_WATCHDOG_RELAY | output; energized only while Modbus comms are healthy |
