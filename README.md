@@ -51,6 +51,22 @@ Per side (Open/Close), from inboard to outboard:
 - Module is high-level triggered, matching the code's `HIGH` = energized/healthy convention directly — no inversion needed
 - Wired into the E-stop chain via its **COM + NO** contacts (closed only while energized/healthy), see above
 
+## Status LED
+
+3-pin common-cathode RGB LED (e.g. AZDelivery KY-016) on pins 8/9/10, driven via `RoofController` state — see [src/StatusLed.cpp](src/StatusLed.cpp):
+
+| Color | Meaning |
+|-------|---------|
+| Solid green | Idle, homed |
+| Blinking yellow | Idle but not yet homed, or homing in progress |
+| Solid blue | Opening |
+| Solid magenta | Closing |
+| Blinking white | Restarting the BLSD20 |
+| Blinking red | Fault — overrides everything else, even if the LED has been switched off |
+| Off | LED switched off (`LED_BUTTON` or `LED OFF`), and no fault |
+
+`LED_BUTTON` (pin 11) or the serial `LED ON`/`LED OFF`/`LED TOGGLE` commands toggle the LED off/on for cosmetic reasons (e.g. it shining into a room at night); a Fault always blinks red regardless.
+
 ## Motor controller (BLSD20)
 
 - RS-485 Modbus RTU, slave ID `RoofConfig::MODBUS_SLAVE_ID`, 115200 baud, 8E1.
