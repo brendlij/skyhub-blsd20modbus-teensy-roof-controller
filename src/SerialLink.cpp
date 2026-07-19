@@ -6,6 +6,9 @@ SerialLink::SerialLink(RoofController& roof, StatusLed& led, Stream& port) : _ro
 void SerialLink::begin()
 {
     _lineBuf.reserve(32);
+
+    pinMode(Pins::CASE_FAN_RELAY, OUTPUT);
+    setFan(true);
 }
 
 void SerialLink::update()
@@ -52,6 +55,9 @@ void SerialLink::handleLine(const String& lineIn)
     else if (line == "LED ON") { _led.setEnabled(true); ok = true; }
     else if (line == "LED OFF") { _led.setEnabled(false); ok = true; }
     else if (line == "LED TOGGLE") { _led.toggle(); ok = true; }
+    else if (line == "FAN ON") { setFan(true); ok = true; }
+    else if (line == "FAN OFF") { setFan(false); ok = true; }
+    else if (line == "FAN TOGGLE") { setFan(!_fanOn); ok = true; }
     else if (line == "STATUS")
     {
         printStatus();
@@ -66,6 +72,12 @@ void SerialLink::handleLine(const String& lineIn)
 
     _port.print(ok ? "OK " : "ERR rejected ");
     _port.println(line);
+}
+
+void SerialLink::setFan(bool on)
+{
+    _fanOn = on;
+    digitalWrite(Pins::CASE_FAN_RELAY, on ? LOW : HIGH); // relay NC contact: LOW = fan on
 }
 
 void SerialLink::printStatus()
@@ -88,6 +100,8 @@ void SerialLink::printStatus()
     _port.print(_roof.motorCurrentMa());
     _port.print(" led=");
     _port.print(_led.isEnabled() ? 1 : 0);
+    _port.print(" fan=");
+    _port.print(_fanOn ? 1 : 0);
     _port.print(" hardstop=");
     _port.print(_roof.hardStopActive() ? 1 : 0);
     if (_roof.hasFault())

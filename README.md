@@ -22,6 +22,7 @@ Roof/blind controller on a Teensy 4.1, driving a BLSD20 BLDC motor controller ov
 | 14 | SLOW_OPEN | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW` |
 | 15 | SLOW_CLOSE | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW` |
 | 16 | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy |
+| 17 | CASE_FAN_RELAY | output → relay module `IN`; fan wired to the relay's NC contact, so `LOW` = fan on (default at boot), `HIGH` = fan off. Toggled via the serial `FAN ON`/`FAN OFF`/`FAN TOGGLE` commands |
 
 All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debounced in software (see [src/DebouncedInput.h](src/DebouncedInput.h)).
 
@@ -70,6 +71,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 | `SAVE` | One-time provisioning: `saveSettings()` + `restart()` on the BLSD20 | not `Idle` |
 | `RESTART` | Reboots the BLSD20 only, then re-applies the runtime config once it's back up | not `Idle` and not `Fault` |
 | `LED ON` / `LED OFF` / `LED TOGGLE` | Controls the status RGB LED | never |
+| `FAN ON` / `FAN OFF` / `FAN TOGGLE` | Controls the case fan relay (see `CASE_FAN_RELAY`, pin 17) | never |
 | `STATUS` | Prints a `STATUS ...` line immediately (no `OK`/`ERR` reply) | never |
 | *(anything else)* | — | `ERR unknown_command <CMD>` |
 
@@ -78,7 +80,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and immediately on any state change, in addition to being sent in reply to an explicit `STATUS` command:
 
 ```
-STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 hardstop=0
+STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 fan=1 hardstop=0
 ```
 
 | Field | Meaning |
@@ -92,5 +94,6 @@ STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 
 | `speed` | motor speed, rpm |
 | `current` | motor current, mA |
 | `led` | status LED on/off |
+| `fan` | case fan on/off |
 | `hardstop` | `1` if the BLSD20's `HARD_STOP` input is currently asserted (hardware E-stop loop tripped) |
 | `fault` / `errflags` | only present when `state=FAULT`: human-readable reason and the raw BLSD20 error bitmask (hex) |

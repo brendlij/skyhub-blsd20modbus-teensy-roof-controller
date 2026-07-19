@@ -44,6 +44,12 @@ namespace Pins
     // entirely outside of Modbus.
     constexpr uint8_t MODBUS_WATCHDOG_RELAY = 16;
 
+    // Case fan relay. Fan is wired to the relay's NC contact, so it runs
+    // whenever the pin is LOW (relay de-energized) and stops when the pin
+    // is driven HIGH. Defaults on at boot; toggled via the FAN serial
+    // command, see SerialLink.
+    constexpr uint8_t CASE_FAN_RELAY = 17;
+
     // Status RGB LED (e.g. AZDelivery KY-016), common cathode: common pin to
     // GND, each color pin driven HIGH through the module's onboard resistors.
     constexpr uint8_t LED_R = 8;

@@ -6,10 +6,10 @@
 
 // Line-based USB command protocol for the Pi.
 // Commands (newline terminated, case-insensitive): OPEN, CLOSE, STOP, HOME,
-// SAVE, RESTART, LED ON, LED OFF, LED TOGGLE, STATUS. Each is answered with
-// "OK <cmd>" or "ERR <reason> <cmd>". Telemetry is pushed unprompted as
-// "STATUS key=value ..." lines, both periodically and immediately on any
-// state change.
+// SAVE, RESTART, LED ON, LED OFF, LED TOGGLE, FAN ON, FAN OFF, FAN TOGGLE,
+// STATUS. Each is answered with "OK <cmd>" or "ERR <reason> <cmd>".
+// Telemetry is pushed unprompted as "STATUS key=value ..." lines, both
+// periodically and immediately on any state change.
 class SerialLink
 {
 public:
@@ -21,6 +21,7 @@ public:
 private:
     void handleLine(const String& line);
     void printStatus();
+    void setFan(bool on);
 
     RoofController& _roof;
     StatusLed& _led;
@@ -28,4 +29,5 @@ private:
     String _lineBuf;
     uint32_t _lastStatusMs = 0;
     RoofState _lastReportedState = RoofState::Uninitialized;
+    bool _fanOn = true;
 };
