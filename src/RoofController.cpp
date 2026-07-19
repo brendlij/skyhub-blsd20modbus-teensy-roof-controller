@@ -167,6 +167,13 @@ void RoofController::update()
 
     switch (_state)
     {
+    case RoofState::Idle:
+        // Also catches a hardware E-stop trip while sitting idle -- the
+        // BLSD20 latches EmergencyStop in its ERROR register regardless of
+        // what the Teensy was doing, so this is what promotes that into a
+        // visible Fault (red LED) instead of silently staying Idle.
+        checkMotorHealth();
+        break;
     case RoofState::Homing:
         updateHoming();
         checkMotorHealth();
