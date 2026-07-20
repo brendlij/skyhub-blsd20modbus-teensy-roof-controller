@@ -69,7 +69,7 @@ namespace RoofConfig
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 2000;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;
-    constexpr uint16_t SPEED_MANUAL = 800;
+    constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
     // A homing run producing less travel than this is rejected as bogus

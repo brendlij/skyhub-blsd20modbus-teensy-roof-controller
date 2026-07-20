@@ -233,9 +233,9 @@ void RoofController::updateManualHold()
 
             if (_armedDir != 0 && millis() - _armedPressMs >= RoofConfig::MANUAL_COMBO_GRACE_MS)
             {
-                if (_armedDir == 1 && startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
+                if (_armedDir == 1 && !_limitOpen.isActive() && startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
                     _state = RoofState::Opening;
-                else if (_armedDir == -1 && startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
+                else if (_armedDir == -1 && !_limitClose.isActive() && startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
                     _state = RoofState::Closing;
                 _armedDir = 0;
             }

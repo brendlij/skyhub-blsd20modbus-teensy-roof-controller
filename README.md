@@ -4,25 +4,25 @@ Roof/blind controller on a Teensy 4.1, driving a BLSD20 BLDC motor controller ov
 
 ## Pinout
 
-| Pin | Signal | Notes |
-|-----|--------|-------|
-| 0 (RX1) | Modbus RS-485 RX | Waveshare TTL-to-RS485 (B), auto direction switching — no DE pin needed |
-| 1 (TX1) | Modbus RS-485 TX | same converter |
-| 2 | BTN_OPEN | edge-triggered in Auto, hold-to-run in Manual |
-| 3 | BTN_STOP | |
-| 4 | BTN_CLOSE | edge-triggered in Auto, hold-to-run in Manual |
-| 5 | MODE_SWITCH_AUTO | left position of the 3-position rotary switch: C → GND, NO → this pin |
-| 6 | LIMIT_OPEN | inductive, operational stop (Auto mode), read by Teensy |
-| 7 | LIMIT_CLOSE | inductive, operational stop (Auto mode), read by Teensy |
-| 8 | LED_R | status RGB LED, common cathode |
-| 9 | LED_G | status RGB LED |
-| 10 | LED_B | status RGB LED |
-| 11 | LED_BUTTON | toggles status LED on/off |
-| 12 | MODE_SWITCH_MANUAL | right position of the rotary switch: C → GND, NO → this pin; center position grounds neither → `RoofMode::Off` (lockout) |
-| 14 | SLOW_OPEN | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW` |
-| 15 | SLOW_CLOSE | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW` |
-| 16 | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy |
-| 17 | CASE_FAN_RELAY | output → relay module `IN`; fan wired to the relay's NC contact, so `LOW` = fan on (default at boot), `HIGH` = fan off. Toggled via the serial `FAN ON`/`FAN OFF`/`FAN TOGGLE` commands |
+| Pin     | Signal                | Notes                                                                                                                                                                                   |
+| ------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 (RX1) | Modbus RS-485 RX      | Waveshare TTL-to-RS485 (B), auto direction switching — no DE pin needed                                                                                                                 |
+| 1 (TX1) | Modbus RS-485 TX      | same converter                                                                                                                                                                          |
+| 2       | BTN_OPEN              | edge-triggered in Auto, hold-to-run in Manual                                                                                                                                           |
+| 3       | BTN_STOP              |                                                                                                                                                                                         |
+| 4       | BTN_CLOSE             | edge-triggered in Auto, hold-to-run in Manual                                                                                                                                           |
+| 5       | MODE_SWITCH_AUTO      | left position of the 3-position rotary switch: C → GND, NO → this pin                                                                                                                   |
+| 6       | LIMIT_OPEN            | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
+| 7       | LIMIT_CLOSE           | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
+| 8       | LED_R                 | status RGB LED, common cathode                                                                                                                                                          |
+| 9       | LED_G                 | status RGB LED                                                                                                                                                                          |
+| 10      | LED_B                 | status RGB LED                                                                                                                                                                          |
+| 11      | LED_BUTTON            | toggles status LED on/off                                                                                                                                                               |
+| 12      | MODE_SWITCH_MANUAL    | right position of the rotary switch: C → GND, NO → this pin; center position grounds neither → `RoofMode::Off` (lockout)                                                                |
+| 14      | SLOW_OPEN             | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                               |
+| 15      | SLOW_CLOSE            | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                              |
+| 16      | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy                                                                                                      |
+| 17      | CASE_FAN_RELAY        | output → relay module `IN`; fan wired to the relay's NC contact, so `LOW` = fan on (default at boot), `HIGH` = fan off. Toggled via the serial `FAN ON`/`FAN OFF`/`FAN TOGGLE` commands |
 
 All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debounced in software (see [src/DebouncedInput.h](src/DebouncedInput.h)).
 
@@ -55,15 +55,15 @@ Per side (Open/Close), from inboard to outboard:
 
 3-pin common-cathode RGB LED (e.g. AZDelivery KY-016) on pins 8/9/10, driven via `RoofController` state — see [src/StatusLed.cpp](src/StatusLed.cpp):
 
-| Color | Meaning |
-|-------|---------|
-| Solid green | Idle, homed |
-| Blinking yellow | Idle but not yet homed, or homing in progress |
-| Solid blue | Opening |
-| Solid magenta | Closing |
-| Blinking white | Restarting the BLSD20 |
-| Blinking red | Fault — overrides everything else, even if the LED has been switched off |
-| Off | LED switched off (`LED_BUTTON` or `LED OFF`), and no fault |
+| Color           | Meaning                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| Solid green     | Idle, homed                                                              |
+| Blinking yellow | Idle but not yet homed, or homing in progress                            |
+| Solid blue      | Opening                                                                  |
+| Solid magenta   | Closing                                                                  |
+| Blinking white  | Restarting the BLSD20                                                    |
+| Blinking red    | Fault — overrides everything else, even if the LED has been switched off |
+| Off             | LED switched off (`LED_BUTTON` or `LED OFF`), and no fault               |
 
 `LED_BUTTON` (pin 11) or the serial `LED ON`/`LED OFF`/`LED TOGGLE` commands toggle the LED off/on for cosmetic reasons (e.g. it shining into a room at night); a Fault always blinks red regardless.
 
@@ -78,18 +78,18 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 
 ### Commands
 
-| Command | Effect | Rejected when |
-|---------|--------|----------------|
-| `OPEN` | Starts an Auto-mode opening move | not in `RoofMode::Auto`, not `Idle`, not homed, `LIMIT_OPEN` already active, or motor has an error flag |
-| `CLOSE` | Starts an Auto-mode closing move | same as `OPEN`, mirrored for the close side |
-| `STOP` | Stops the motor, clears any fault, returns to `Idle` | never — always succeeds |
-| `HOME` | Runs the homing sequence (seek close → seek open) | `RoofMode::Off`, not `Idle`, or motor has an error flag |
-| `SAVE` | One-time provisioning: `saveSettings()` + `restart()` on the BLSD20 | not `Idle` |
-| `RESTART` | Reboots the BLSD20 only, then re-applies the runtime config once it's back up | not `Idle` and not `Fault` |
-| `LED ON` / `LED OFF` / `LED TOGGLE` | Controls the status RGB LED | never |
-| `FAN ON` / `FAN OFF` / `FAN TOGGLE` | Controls the case fan relay (see `CASE_FAN_RELAY`, pin 17) | never |
-| `STATUS` | Prints a `STATUS ...` line immediately (no `OK`/`ERR` reply) | never |
-| *(anything else)* | — | `ERR unknown_command <CMD>` |
+| Command                             | Effect                                                                        | Rejected when                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `OPEN`                              | Starts an Auto-mode opening move                                              | not in `RoofMode::Auto`, not `Idle`, not homed, `LIMIT_OPEN` already active, or motor has an error flag |
+| `CLOSE`                             | Starts an Auto-mode closing move                                              | same as `OPEN`, mirrored for the close side                                                             |
+| `STOP`                              | Stops the motor, clears any fault, returns to `Idle`                          | never — always succeeds                                                                                 |
+| `HOME`                              | Runs the homing sequence (seek close → seek open)                             | `RoofMode::Off`, not `Idle`, or motor has an error flag                                                 |
+| `SAVE`                              | One-time provisioning: `saveSettings()` + `restart()` on the BLSD20           | not `Idle`                                                                                              |
+| `RESTART`                           | Reboots the BLSD20 only, then re-applies the runtime config once it's back up | not `Idle` and not `Fault`                                                                              |
+| `LED ON` / `LED OFF` / `LED TOGGLE` | Controls the status RGB LED                                                   | never                                                                                                   |
+| `FAN ON` / `FAN OFF` / `FAN TOGGLE` | Controls the case fan relay (see `CASE_FAN_RELAY`, pin 17)                    | never                                                                                                   |
+| `STATUS`                            | Prints a `STATUS ...` line immediately (no `OK`/`ERR` reply)                  | never                                                                                                   |
+| _(anything else)_                   | —                                                                             | `ERR unknown_command <CMD>`                                                                             |
 
 ### Telemetry
 
@@ -99,17 +99,17 @@ A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and i
 STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 fan=1 hardstop=0
 ```
 
-| Field | Meaning |
-|-------|---------|
-| `mode` | `AUTO` / `MANUAL` / `OFF` |
-| `state` | `UNINITIALIZED` / `IDLE` / `HOMING` / `OPENING` / `CLOSING` / `FAULT` / `RESTARTING` |
-| `homed` | `1` once a valid homing run has completed |
-| `calib_stale` | `1` after a `RESTART`, until the roof next fully closes and re-zeroes |
-| `percent` | 0–100, or `-1` if not homed |
-| `pos` | raw motor position counts |
-| `speed` | motor speed, rpm |
-| `current` | motor current, mA |
-| `led` | status LED on/off |
-| `fan` | case fan on/off |
-| `hardstop` | `1` if the BLSD20's `HARD_STOP` input is currently asserted (hardware E-stop loop tripped) |
+| Field                | Meaning                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `mode`               | `AUTO` / `MANUAL` / `OFF`                                                                     |
+| `state`              | `UNINITIALIZED` / `IDLE` / `HOMING` / `OPENING` / `CLOSING` / `FAULT` / `RESTARTING`          |
+| `homed`              | `1` once a valid homing run has completed                                                     |
+| `calib_stale`        | `1` after a `RESTART`, until the roof next fully closes and re-zeroes                         |
+| `percent`            | 0–100, or `-1` if not homed                                                                   |
+| `pos`                | raw motor position counts                                                                     |
+| `speed`              | motor speed, rpm                                                                              |
+| `current`            | motor current, mA                                                                             |
+| `led`                | status LED on/off                                                                             |
+| `fan`                | case fan on/off                                                                               |
+| `hardstop`           | `1` if the BLSD20's `HARD_STOP` input is currently asserted (hardware E-stop loop tripped)    |
 | `fault` / `errflags` | only present when `state=FAULT`: human-readable reason and the raw BLSD20 error bitmask (hex) |
