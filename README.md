@@ -30,8 +30,8 @@ All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debou
 
 Per side (Open/Close), from inboard to outboard:
 
-1. **Slow switch** (`SLOW_OPEN`/`SLOW_CLOSE`, Teensy pins 14/15) — marks where an Auto move drops from `SPEED_AUTO_FAST` to `SPEED_AUTO_SLOW`. Full speed is allowed anywhere between the two.
-2. **Operational limit switch** (`LIMIT_OPEN`/`LIMIT_CLOSE`, Teensy pins 6/7) — normal software stop point in Auto mode, and the homing reference points.
+1. **Slow switch** (`SLOW_OPEN`/`SLOW_CLOSE`, Teensy pins 14/15) — marks where an Auto move drops from `SPEED_AUTO_FAST` to `SPEED_AUTO_SLOW`. Full speed is allowed anywhere between the two. Optional: while `RoofConfig::AUTO_HAS_SLOW_SWITCHES = false` (default), these aren't required — an Auto move just stays at `SPEED_AUTO_SLOW` for the whole travel instead of ever using `SPEED_AUTO_FAST`. Set the flag `true` once they're wired up to get real fast/slow moves.
+2. **Operational limit switch** (`LIMIT_OPEN`/`LIMIT_CLOSE`, Teensy pins 6/7) — normal software stop point in Auto mode, and the homing reference points. This is the switch that actually stops an Auto move; `RoofConfig::AUTO_REQUIRES_HOMING = false` (default) lets `OPEN`/`CLOSE` work off these alone, without a prior `HOME` run — `percent` just stays `-1` and no calibration gets saved until homing actually succeeds.
 3. **Hardware E-stop switch** (outermost, one per side) — **not wired to the Teensy at all.** Wired directly into a hardware series loop, independent of software/Modbus:
 
    ```
@@ -80,7 +80,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 
 | Command                             | Effect                                                                        | Rejected when                                                                                           |
 | ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `OPEN`                              | Starts an Auto-mode opening move                                              | not in `RoofMode::Auto`, not `Idle`, not homed, `LIMIT_OPEN` already active, or motor has an error flag |
+| `OPEN`                              | Starts an Auto-mode opening move                                              | not in `RoofMode::Auto`, not `Idle`, not homed (only if `RoofConfig::AUTO_REQUIRES_HOMING`), `LIMIT_OPEN` already active, or motor has an error flag |
 | `CLOSE`                             | Starts an Auto-mode closing move                                              | same as `OPEN`, mirrored for the close side                                                             |
 | `STOP`                              | Stops the motor, clears any fault, returns to `Idle`                          | never — always succeeds                                                                                 |
 | `HOME`                              | Runs the homing sequence (seek close → seek open)                             | `RoofMode::Off`, not `Idle`, or motor has an error flag                                                 |

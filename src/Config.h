@@ -66,6 +66,19 @@ namespace RoofConfig
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
 
+    // If false, Auto-mode OPEN/CLOSE work even with homed=false (e.g. slow
+    // switches not wired yet -- LIMIT_OPEN/LIMIT_CLOSE alone still stop the
+    // move). percent stays -1 and no calibration is saved until a HOME
+    // actually succeeds. Set true once homing + slow switches are wired up.
+    constexpr bool AUTO_REQUIRES_HOMING = false;
+
+    // If false, SLOW_OPEN/SLOW_CLOSE aren't wired up yet, so an Auto move
+    // never uses SPEED_AUTO_FAST -- it starts (and stays) at SPEED_AUTO_SLOW
+    // for the whole travel, same as if the slow switch had already tripped.
+    // Set true once the slow switches are wired up, to get real fast/slow
+    // Auto moves.
+    constexpr bool AUTO_HAS_SLOW_SWITCHES = false;
+
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 2000;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;

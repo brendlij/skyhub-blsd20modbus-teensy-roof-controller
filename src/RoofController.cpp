@@ -438,7 +438,7 @@ bool RoofController::requestOpen()
     if (_mode != RoofMode::Auto) return false;
     if (_state == RoofState::Opening) return true;
     if (_state != RoofState::Idle) return false;
-    if (!_homed) return false;
+    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
     if (_limitOpen.isActive()) return false;
     if (_motor.hasError())
     {
@@ -446,7 +446,7 @@ bool RoofController::requestOpen()
         return false;
     }
 
-    bool startSlow = _slowOpen.isActive();
+    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || _slowOpen.isActive();
     if (!startMove(RoofConfig::DIR_OPEN, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Opening;
     _slowdownApplied = startSlow;
@@ -459,7 +459,7 @@ bool RoofController::requestClose()
     if (_mode != RoofMode::Auto) return false;
     if (_state == RoofState::Closing) return true;
     if (_state != RoofState::Idle) return false;
-    if (!_homed) return false;
+    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
     if (_limitClose.isActive()) return false;
     if (_motor.hasError())
     {
@@ -467,7 +467,7 @@ bool RoofController::requestClose()
         return false;
     }
 
-    bool startSlow = _slowClose.isActive();
+    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || _slowClose.isActive();
     if (!startMove(RoofConfig::DIR_CLOSE, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Closing;
     _slowdownApplied = startSlow;
