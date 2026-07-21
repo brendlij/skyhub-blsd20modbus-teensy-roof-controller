@@ -305,18 +305,11 @@ void RoofController::updateAutoMove()
         }
         if (!_slowdownApplied)
         {
-            if (!_slowOpen.isActive())
+            if (_slowdownTriggeredMs == 0 && _slowOpen.isActive()) _slowdownTriggeredMs = millis();
+            if (_slowdownTriggeredMs != 0 && millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
             {
-                _slowdownTriggeredMs = 0;
-            }
-            else
-            {
-                if (_slowdownTriggeredMs == 0) _slowdownTriggeredMs = millis();
-                if (millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
-                {
-                    _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
-                    _slowdownApplied = true;
-                }
+                _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
+                _slowdownApplied = true;
             }
         }
     }
@@ -331,18 +324,11 @@ void RoofController::updateAutoMove()
         }
         if (!_slowdownApplied)
         {
-            if (!_slowClose.isActive())
+            if (_slowdownTriggeredMs == 0 && _slowClose.isActive()) _slowdownTriggeredMs = millis();
+            if (_slowdownTriggeredMs != 0 && millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
             {
-                _slowdownTriggeredMs = 0;
-            }
-            else
-            {
-                if (_slowdownTriggeredMs == 0) _slowdownTriggeredMs = millis();
-                if (millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
-                {
-                    _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
-                    _slowdownApplied = true;
-                }
+                _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
+                _slowdownApplied = true;
             }
         }
     }
