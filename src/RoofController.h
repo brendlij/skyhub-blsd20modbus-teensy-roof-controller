@@ -51,6 +51,12 @@ public:
     uint16_t motorCurrentMa() const { return _lastCurrent; }
     bool hasFault() const { return _state == RoofState::Fault; }
     const char* faultReason() const { return _faultReason; }
+
+    // Why the most recent requestOpen()/requestClose() call returned false,
+    // e.g. "busy" (moving the other way), "stopping" (still coasting through
+    // a soft-stop), "not_homed", "limit_open_active"/"limit_close_active",
+    // "wrong_mode", "motor_error". Empty string if the last call succeeded.
+    const char* lastRejectReason() const { return _lastRejectReason; }
     uint16_t lastErrorFlags() const { return _lastErrorFlags; }
     uint8_t commFailCount() const { return _commFailCount; }
 
@@ -103,6 +109,7 @@ private:
     void loadCalibration();
     void saveCalibration();
     void refreshCalibrationAtLimit(bool closedEnd);
+    void learnSlowTriggerPosition(bool openSide, int32_t pos);
     RoofMode readModeSwitch() const;
 
     void updateManualHold();
@@ -125,11 +132,24 @@ private:
     RoofMode _mode = RoofMode::Auto;
     RoofState _state = RoofState::Uninitialized;
     const char* _faultReason = "";
+    const char* _lastRejectReason = "";
 
     bool _homed = false;
     bool _calibStale = false;
     int32_t _closedPositionCounts = 0;
     int32_t _openPositionCounts = 0;
+
+    // Position (in the same counts as closed/openPositionCounts) at which
+    // SLOW_OPEN/SLOW_CLOSE were last observed to trip during a real move.
+    // These are point sensors (inductive proximity switches), not
+    // continuously-active zone sensors, so requestOpen()/requestClose() use
+    // this remembered position -- not just the switch's live state -- to
+    // decide whether a restart from a stop already sitting past that point
+    // should start slow. Self-corrects (and re-saves) whenever the switch
+    // actually trips again with a meaningfully different reading.
+    static constexpr int32_t SLOW_POSITION_UNKNOWN = INT32_MIN;
+    int32_t _slowOpenPositionCounts = SLOW_POSITION_UNKNOWN;
+    int32_t _slowClosePositionCounts = SLOW_POSITION_UNKNOWN;
 
     HomingStep _homingStep = HomingStep::SeekClose;
     uint32_t _moveStartedMs = 0;

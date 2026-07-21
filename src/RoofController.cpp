@@ -11,6 +11,8 @@ namespace
         uint32_t magic;
         int32_t closedPositionCounts;
         int32_t openPositionCounts;
+        int32_t slowOpenPositionCounts;
+        int32_t slowClosePositionCounts;
     };
 }
 
@@ -43,13 +45,42 @@ void RoofController::loadCalibration()
         _closedPositionCounts = blob.closedPositionCounts;
         _openPositionCounts = blob.openPositionCounts;
         _homed = true;
+
+        // Guard against a blob written before these two fields existed
+        // (trailing garbage bytes): only trust a slow-trigger position that
+        // actually falls within the known closed..open travel range.
+        _slowOpenPositionCounts =
+            (blob.slowOpenPositionCounts >= _closedPositionCounts && blob.slowOpenPositionCounts <= _openPositionCounts)
+                ? blob.slowOpenPositionCounts
+                : SLOW_POSITION_UNKNOWN;
+        _slowClosePositionCounts =
+            (blob.slowClosePositionCounts >= _closedPositionCounts && blob.slowClosePositionCounts <= _openPositionCounts)
+                ? blob.slowClosePositionCounts
+                : SLOW_POSITION_UNKNOWN;
     }
 }
 
 void RoofController::saveCalibration()
 {
-    CalibrationBlob blob{CAL_MAGIC, _closedPositionCounts, _openPositionCounts};
+    CalibrationBlob blob{CAL_MAGIC, _closedPositionCounts, _openPositionCounts,
+                          _slowOpenPositionCounts, _slowClosePositionCounts};
     EEPROM.put(EEPROM_ADDR, blob);
+}
+
+// Called whenever a slow switch is actually observed to trip during a real
+// move. Self-corrects the remembered trigger position (and re-saves it) if
+// it's unknown yet or has drifted meaningfully from what's stored -- same
+// drift-tolerance pattern as refreshCalibrationAtLimit().
+void RoofController::learnSlowTriggerPosition(bool openSide, int32_t pos)
+{
+    int32_t& stored = openSide ? _slowOpenPositionCounts : _slowClosePositionCounts;
+    bool shouldUpdate = (stored == SLOW_POSITION_UNKNOWN) ||
+                         (abs(pos - stored) > RoofConfig::CALIBRATION_DRIFT_TOLERANCE_COUNTS);
+    if (shouldUpdate)
+    {
+        stored = pos;
+        saveCalibration();
+    }
 }
 
 // Called every time a limit switch is actually reached, not just during an
@@ -313,7 +344,11 @@ void RoofController::updateAutoMove()
         }
         if (!_slowdownApplied)
         {
-            if (_slowdownTriggeredMs == 0 && _slowOpen.isActive()) _slowdownTriggeredMs = millis();
+            if (_slowdownTriggeredMs == 0 && _slowOpen.isActive())
+            {
+                _slowdownTriggeredMs = millis();
+                if (_homed) learnSlowTriggerPosition(true, _motor.getPosition());
+            }
             if (_slowdownTriggeredMs != 0 && millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
             {
                 _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
@@ -332,7 +367,11 @@ void RoofController::updateAutoMove()
         }
         if (!_slowdownApplied)
         {
-            if (_slowdownTriggeredMs == 0 && _slowClose.isActive()) _slowdownTriggeredMs = millis();
+            if (_slowdownTriggeredMs == 0 && _slowClose.isActive())
+            {
+                _slowdownTriggeredMs = millis();
+                if (_homed) learnSlowTriggerPosition(false, _motor.getPosition());
+            }
             if (_slowdownTriggeredMs != 0 && millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
             {
                 _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
@@ -488,21 +527,42 @@ bool RoofController::startMove(BLSD20Direction dir, uint16_t speed)
 
 bool RoofController::requestOpen()
 {
-    if (_mode != RoofMode::Auto) return false;
+    _lastRejectReason = "";
+    if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
     if (_state == RoofState::Opening) return true;
-    // Also allow overriding a Closing move (e.g. mid soft-stop after STOP) --
-    // reverses immediately instead of waiting out the pending stop.
-    if (_state != RoofState::Idle && _state != RoofState::Closing) return false;
-    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
-    if (_limitOpen.isActive()) return false;
+    // Reversing straight into a still-decelerating (or still-moving) motor
+    // isn't reliable on this hardware -- require a full stop (Idle) before
+    // accepting the opposite direction. Callers should STOP and wait for
+    // Idle rather than expect an immediate reversal.
+    if (_state != RoofState::Idle)
+    {
+        _lastRejectReason = (_stopRequestedMs != 0) ? "stopping" : "busy";
+        return false;
+    }
+    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) { _lastRejectReason = "not_homed"; return false; }
+    if (_limitOpen.isActive()) { _lastRejectReason = "limit_open_active"; return false; }
     if (_motor.hasError())
     {
         enterFault("motor error flag set");
+        _lastRejectReason = "motor_error";
         return false;
     }
 
-    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || _slowOpen.isActive();
-    if (!startMove(RoofConfig::DIR_OPEN, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
+    // SLOW_OPEN is a point sensor (inductive proximity switch), not a
+    // continuously-active zone sensor - if we're stopped somewhere past it
+    // but the switch itself isn't live right now, the remembered trigger
+    // position (see learnSlowTriggerPosition()) still says so.
+    bool pastSlowOpen = _slowOpen.isActive();
+    if (!pastSlowOpen && _homed && _slowOpenPositionCounts != SLOW_POSITION_UNKNOWN)
+    {
+        pastSlowOpen = _lastPosition >= _slowOpenPositionCounts;
+    }
+    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || pastSlowOpen;
+    if (!startMove(RoofConfig::DIR_OPEN, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST))
+    {
+        _lastRejectReason = "motor_comm_error";
+        return false;
+    }
     _state = RoofState::Opening;
     _slowdownApplied = startSlow;
     _slowdownTriggeredMs = 0;
@@ -513,21 +573,39 @@ bool RoofController::requestOpen()
 
 bool RoofController::requestClose()
 {
-    if (_mode != RoofMode::Auto) return false;
+    _lastRejectReason = "";
+    if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
     if (_state == RoofState::Closing) return true;
-    // Also allow overriding an Opening move (e.g. mid soft-stop after STOP) --
-    // reverses immediately instead of waiting out the pending stop.
-    if (_state != RoofState::Idle && _state != RoofState::Opening) return false;
-    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
-    if (_limitClose.isActive()) return false;
+    // See requestOpen(): require Idle before accepting the opposite
+    // direction, rather than reversing mid-move/mid-soft-stop.
+    if (_state != RoofState::Idle)
+    {
+        _lastRejectReason = (_stopRequestedMs != 0) ? "stopping" : "busy";
+        return false;
+    }
+    if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) { _lastRejectReason = "not_homed"; return false; }
+    if (_limitClose.isActive()) { _lastRejectReason = "limit_close_active"; return false; }
     if (_motor.hasError())
     {
         enterFault("motor error flag set");
+        _lastRejectReason = "motor_error";
         return false;
     }
 
-    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || _slowClose.isActive();
-    if (!startMove(RoofConfig::DIR_CLOSE, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
+    // See requestOpen(): fall back to the remembered trigger position when
+    // SLOW_CLOSE (a point sensor) isn't live right now but we're already
+    // stopped past it.
+    bool pastSlowClose = _slowClose.isActive();
+    if (!pastSlowClose && _homed && _slowClosePositionCounts != SLOW_POSITION_UNKNOWN)
+    {
+        pastSlowClose = _lastPosition <= _slowClosePositionCounts;
+    }
+    bool startSlow = !RoofConfig::AUTO_HAS_SLOW_SWITCHES || pastSlowClose;
+    if (!startMove(RoofConfig::DIR_CLOSE, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST))
+    {
+        _lastRejectReason = "motor_comm_error";
+        return false;
+    }
     _state = RoofState::Closing;
     _slowdownApplied = startSlow;
     _slowdownTriggeredMs = 0;

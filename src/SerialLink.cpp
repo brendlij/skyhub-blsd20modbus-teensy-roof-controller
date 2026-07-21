@@ -46,8 +46,9 @@ void SerialLink::handleLine(const String& lineIn)
     line.toUpperCase();
 
     bool ok = false;
-    if (line == "OPEN") ok = _roof.requestOpen();
-    else if (line == "CLOSE") ok = _roof.requestClose();
+    bool useRejectReason = false;
+    if (line == "OPEN") { ok = _roof.requestOpen(); useRejectReason = true; }
+    else if (line == "CLOSE") { ok = _roof.requestClose(); useRejectReason = true; }
     else if (line == "STOP") ok = _roof.requestStop();
     else if (line == "HOME") ok = _roof.requestHome();
     else if (line == "SAVE") ok = _roof.requestSaveSettings();
@@ -70,7 +71,20 @@ void SerialLink::handleLine(const String& lineIn)
         return;
     }
 
-    _port.print(ok ? "OK " : "ERR rejected ");
+    if (ok)
+    {
+        _port.print("OK ");
+    }
+    else if (useRejectReason && _roof.lastRejectReason()[0] != '\0')
+    {
+        _port.print("ERR ");
+        _port.print(_roof.lastRejectReason());
+        _port.print(" ");
+    }
+    else
+    {
+        _port.print("ERR rejected ");
+    }
     _port.println(line);
 }
 
