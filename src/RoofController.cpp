@@ -120,6 +120,7 @@ void RoofController::begin()
     loadCalibration();
 
     _state = RoofState::Idle;
+    _bootAutoRestartAtMs = millis() + RoofConfig::BOOT_AUTO_RESTART_DELAY_MS;
 }
 
 void RoofController::update()
@@ -138,6 +139,12 @@ void RoofController::update()
 
     updatePositionPoll();
     updateWatchdogRelay();
+
+    if (_bootAutoRestartPending && millis() >= _bootAutoRestartAtMs)
+    {
+        _bootAutoRestartPending = false;
+        requestRestart();
+    }
 
     if (_btnStop.wasPressed())
     {
@@ -351,9 +358,20 @@ void RoofController::updateHoming()
             _closedPositionCounts = 0;
             _calibStale = false;
             saveCalibration();
-            _homingStep = HomingStep::SeekOpen;
+            _homingStep = HomingStep::PauseBeforeOpen;
+            _homingPauseUntilMs = millis() + RoofConfig::HOMING_LEG_PAUSE_MS;
+        }
+    }
+    else if (_homingStep == HomingStep::PauseBeforeOpen)
+    {
+        if (millis() >= _homingPauseUntilMs)
+        {
             _moveStartedMs = millis();
-            if (!startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_HOMING))
+            if (startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_HOMING))
+            {
+                _homingStep = HomingStep::SeekOpen;
+            }
+            else
             {
                 enterFault("homing: could not start open leg");
             }

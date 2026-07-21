@@ -43,6 +43,8 @@ namespace RoofConfig
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
 
+    constexpr uint32_t BOOT_AUTO_RESTART_DELAY_MS = 2000; // auto-RESTART the BLSD20 this long after Teensy boot
+
     constexpr bool AUTO_REQUIRES_HOMING = false;           // require a successful HOME before Auto OPEN/CLOSE
     constexpr bool AUTO_HAS_SLOW_SWITCHES = true;          // false = always SPEED_AUTO_SLOW, never SPEED_AUTO_FAST
     constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false; // false = Manual ignores LIMIT_OPEN/LIMIT_CLOSE entirely
@@ -57,6 +59,7 @@ namespace RoofConfig
     constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500; // soft-stop delay after STOP while Opening/Closing
 
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000; // shorter homing runs are rejected as bogus
+    constexpr uint32_t HOMING_LEG_PAUSE_MS = 500;     // pause between the SeekClose stop and starting SeekOpen
 
     // DO NOT CHANGE -- confirmed against actual motor rotation.
     constexpr BLSD20Direction DIR_OPEN = BLSD20Direction::Backward;
@@ -71,7 +74,7 @@ namespace RoofConfig
     constexpr uint32_t DEBOUNCE_MS = 30;
     constexpr uint32_t POSITION_POLL_MS = 100;
     constexpr uint32_t STATUS_REPORT_MS = 500;
-    constexpr uint32_t HOMING_TIMEOUT_MS = 80000;
+    constexpr uint32_t HOMING_TIMEOUT_MS = 160000;
     constexpr uint32_t MOVE_TIMEOUT_MS = 48000;
     constexpr uint8_t MAX_COMM_FAILURES = 3;
 

@@ -90,6 +90,7 @@ private:
     enum class HomingStep : uint8_t
     {
         SeekClose,
+        PauseBeforeOpen,
         SeekOpen
     };
 
@@ -126,9 +127,17 @@ private:
 
     HomingStep _homingStep = HomingStep::SeekClose;
     uint32_t _moveStartedMs = 0;
+    uint32_t _homingPauseUntilMs = 0;
     bool _slowdownApplied = false;
     uint32_t _slowdownTriggeredMs = 0; // 0 = slow switch not (yet continuously) active
     uint32_t _stopRequestedMs = 0; // 0 = no soft-stop in progress, see requestStop()
+
+    // The watchdog relay pin starts LOW at boot (fail-safe), which briefly
+    // breaks the hardware E-stop loop and latches EmergencyStop on the
+    // BLSD20. This clears that automatically shortly after boot instead of
+    // requiring a manual RESTART every time.
+    bool _bootAutoRestartPending = true;
+    uint32_t _bootAutoRestartAtMs = 0;
 
     // Manual-mode button arbitration: a lone press is armed for a short
     // grace window before it actually starts a move, so a genuine
