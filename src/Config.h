@@ -13,9 +13,9 @@ namespace Pins
 
     // Same physical buttons are read differently depending on Mode: edge
     // triggered in Auto, hold-to-run in Manual.
-    constexpr uint8_t BTN_OPEN = 2;
+    constexpr uint8_t BTN_OPEN = 4;
     constexpr uint8_t BTN_STOP = 3;
-    constexpr uint8_t BTN_CLOSE = 4;
+    constexpr uint8_t BTN_CLOSE = 2;
 
     // 3-position rotary switch (2NO 2NC), e.g. Nimomo 19mm: one leg grounds
     // MODE_SWITCH_AUTO in the Auto position, the other grounds
@@ -79,6 +79,12 @@ namespace RoofConfig
     // Auto moves.
     constexpr bool AUTO_HAS_SLOW_SWITCHES = true;
 
+    // If false, Manual-mode hold-to-run moves ignore LIMIT_OPEN/LIMIT_CLOSE
+    // entirely (no start-guard, no mid-move cutoff) -- only button
+    // release/STOP stops them. The outer hardware E-stop loop is completely
+    // separate wiring and still cuts the motor regardless of this flag.
+    constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false;
+
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 2000;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;
@@ -100,8 +106,8 @@ namespace RoofConfig
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000;
 
     // Swap these two if the roof moves the wrong way relative to Open/Close.
-    constexpr BLSD20Direction DIR_OPEN = BLSD20Direction::Forward;
-    constexpr BLSD20Direction DIR_CLOSE = BLSD20Direction::Backward;
+    constexpr BLSD20Direction DIR_OPEN = BLSD20Direction::Backward;
+    constexpr BLSD20Direction DIR_CLOSE = BLSD20Direction::Forward;
 
     // Drive defaults, applied every boot (see RoofController::begin). These
     // mirror the one-time provisioning values; saveSettings()/restart() are

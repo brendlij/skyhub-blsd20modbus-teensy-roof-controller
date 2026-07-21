@@ -241,9 +241,11 @@ void RoofController::updateManualHold()
 
             if (_armedDir != 0 && millis() - _armedPressMs >= RoofConfig::MANUAL_COMBO_GRACE_MS)
             {
-                if (_armedDir == 1 && !_limitOpen.isActive() && startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
+                bool openBlocked = RoofConfig::MANUAL_RESPECTS_LIMIT_SWITCHES && _limitOpen.isActive();
+                bool closeBlocked = RoofConfig::MANUAL_RESPECTS_LIMIT_SWITCHES && _limitClose.isActive();
+                if (_armedDir == 1 && !openBlocked && startMove(RoofConfig::DIR_OPEN, RoofConfig::SPEED_MANUAL))
                     _state = RoofState::Opening;
-                else if (_armedDir == -1 && !_limitClose.isActive() && startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
+                else if (_armedDir == -1 && !closeBlocked && startMove(RoofConfig::DIR_CLOSE, RoofConfig::SPEED_MANUAL))
                     _state = RoofState::Closing;
                 _armedDir = 0;
             }
@@ -267,17 +269,20 @@ void RoofController::updateManualHold()
     }
 
     // Hard safety cutoff even while under manual (hold) control.
-    if (_state == RoofState::Opening && _limitOpen.isActive())
+    if (RoofConfig::MANUAL_RESPECTS_LIMIT_SWITCHES)
     {
-        stopMotor(false);
-        if (_homed) refreshCalibrationAtLimit(false);
-        _state = RoofState::Idle;
-    }
-    if (_state == RoofState::Closing && _limitClose.isActive())
-    {
-        stopMotor(false);
-        if (_homed) refreshCalibrationAtLimit(true);
-        _state = RoofState::Idle;
+        if (_state == RoofState::Opening && _limitOpen.isActive())
+        {
+            stopMotor(false);
+            if (_homed) refreshCalibrationAtLimit(false);
+            _state = RoofState::Idle;
+        }
+        if (_state == RoofState::Closing && _limitClose.isActive())
+        {
+            stopMotor(false);
+            if (_homed) refreshCalibrationAtLimit(true);
+            _state = RoofState::Idle;
+        }
     }
 }
 
