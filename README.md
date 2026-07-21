@@ -31,7 +31,7 @@ All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debou
 Per side (Open/Close), from inboard to outboard:
 
 1. **Slow switch** (`SLOW_OPEN` pin 15 / `SLOW_CLOSE` pin 14) — marks where an Auto move drops from `SPEED_AUTO_FAST` to `SPEED_AUTO_SLOW`. Full speed is allowed anywhere between the two. Optional: while `RoofConfig::AUTO_HAS_SLOW_SWITCHES = false` (default), these aren't required — an Auto move just stays at `SPEED_AUTO_SLOW` for the whole travel instead of ever using `SPEED_AUTO_FAST`. Set the flag `true` once they're wired up to get real fast/slow moves.
-2. **Operational limit switch** (`LIMIT_OPEN` pin 7 / `LIMIT_CLOSE` pin 6) — normal software stop point in Auto mode, and the homing reference points. This is the switch that actually stops an Auto move; `RoofConfig::AUTO_REQUIRES_HOMING = false` (default) lets `OPEN`/`CLOSE` work off these alone, without a prior `HOME` run — `percent` just stays `-1` and no calibration gets saved until homing actually succeeds.
+2. **Operational limit switch** (`LIMIT_OPEN` pin 7 / `LIMIT_CLOSE` pin 6) — normal software stop point in Auto mode, and the homing reference points. This is the switch that actually stops an Auto move; `RoofConfig::AUTO_REQUIRES_HOMING = false` (default) lets `OPEN`/`CLOSE` work off these alone, without a prior `HOME` run — `percent` just stays `-1` and no calibration gets saved until homing actually succeeds. In Manual mode, `RoofConfig::MANUAL_RESPECTS_LIMIT_SWITCHES = false` (default) makes hold-to-run moves ignore both limit switches entirely — only releasing the button or `STOP` stops them. Set `true` to restore the software cutoff in Manual too. The outer hardware E-stop below is unaffected either way.
 3. **Hardware E-stop switch** (outermost, one per side) — **not wired to the Teensy at all.** Wired directly into a hardware series loop, independent of software/Modbus:
 
    ```
@@ -42,6 +42,21 @@ Per side (Open/Close), from inboard to outboard:
 
    The two outer E-stop limit switches use their **NC** contact (closed at rest, opens on trip or on a broken wire — fails safe either way).
 
+## Homing
+
+Triggered by the serial `HOME` command, or in Manual mode by holding `BTN_OPEN`+`BTN_CLOSE` together (from `Idle`) for `HOME_COMBO_HOLD_MS` (3s) — no serial link needed.
+
+1. **SeekClose**: drives `DIR_CLOSE` at `SPEED_HOMING` until `LIMIT_CLOSE` trips, then resets the BLSD20's position counter to 0 there (`closedPositionCounts = 0`).
+2. Pauses `HOMING_LEG_PAUSE_MS` (500 ms) — gives the BLSD20 time to settle; issuing the next `start()` immediately after `stop()`+position-reset can otherwise get silently dropped.
+3. **SeekOpen**: drives `DIR_OPEN` at `SPEED_HOMING` until `LIMIT_OPEN` trips, recording `openPositionCounts`. If the travel between the two ends is under `MIN_HOMING_RANGE_COUNTS`, the run is rejected as bogus (`homing range too small` fault) — e.g. a switch that never triggered.
+4. On success: `homed=1`, and both counts are saved to EEPROM (survives Teensy reboots/reflashes).
+
+The whole run is capped at `HOMING_TIMEOUT_MS`; timing out enters `Fault`. The hardware E-stop loop above still applies throughout, independent of any of this.
+
+### Calibration drift & self-healing
+
+The BLSD20's own position counter is volatile — it resets on every BLSD20 restart (`RESTART`, `SAVE`, or the automatic post-boot one below), which can desync it from the EEPROM-stored `closedPositionCounts`/`openPositionCounts`. This is flagged as `calib_stale=1` (doesn't block `OPEN`/`CLOSE` — `percent`/`pos` may just be inaccurate until it clears). It self-heals automatically the next time either operational limit switch is actually reached during normal use (`RoofController::refreshCalibrationAtLimit`) — no dedicated re-`HOME` needed.
+
 ## Watchdog relay module
 
 `MODBUS_WATCHDOG_RELAY` (pin 16) drives a 1-channel opto-isolated relay module (`SRD-DC03V-SL-C` relay, `EL817` opto, 3–3.3 V logic, high-level trigger — e.g. the common "3V relay module for ESP8266"):
@@ -50,6 +65,10 @@ Per side (Open/Close), from inboard to outboard:
 - `JP1`/`JP2` jumpers left in place (single supply; no need for the logic/coil sides to be separately powered here)
 - Module is high-level triggered, matching the code's `HIGH` = energized/healthy convention directly — no inversion needed
 - Wired into the E-stop chain via its **COM + NO** contacts (closed only while energized/healthy), see above
+
+### Boot recovery
+
+The watchdog relay pin starts `LOW` at boot (fail-safe) until Modbus comms are proven healthy — this briefly breaks the E-stop loop above and latches `EmergencyStop` on the BLSD20, on *every* Teensy boot/reflash, not just a real fault. `BOOT_AUTO_RESTART_DELAY_MS` (2s) after boot, the controller automatically sends a `RESTART` to the BLSD20 to clear that — no manual `RESTART` needed after a flash or power cycle. This also sets `calib_stale=1`, same as a manual `RESTART` (see Homing above).
 
 ## Status LED
 
@@ -83,7 +102,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 | `OPEN`                              | Starts an Auto-mode opening move                                              | not in `RoofMode::Auto`, not `Idle`, not homed (only if `RoofConfig::AUTO_REQUIRES_HOMING`), `LIMIT_OPEN` already active, or motor has an error flag |
 | `CLOSE`                             | Starts an Auto-mode closing move                                              | same as `OPEN`, mirrored for the close side                                                             |
 | `STOP`                              | If `Opening`/`Closing`: soft stop — drops to `SPEED_AUTO_SLOW`, then a real stop after `STOP_SLOWDOWN_DELAY_MS`. Otherwise: stops the motor immediately, clears any fault, returns to `Idle` | never — always succeeds (immediately, except while `Opening`/`Closing`)                                                                                 |
-| `HOME`                              | Runs the homing sequence (seek close → seek open)                             | `RoofMode::Off`, not `Idle`, or motor has an error flag                                                 |
+| `HOME`                              | Runs the homing sequence (see Homing section above; also triggerable in Manual by holding `BTN_OPEN`+`BTN_CLOSE`) | `RoofMode::Off`, not `Idle`, or motor has an error flag                                                 |
 | `SAVE`                              | One-time provisioning: `saveSettings()` + `restart()` on the BLSD20           | not `Idle`                                                                                              |
 | `RESTART`                           | Reboots the BLSD20 only, then re-applies the runtime config once it's back up | not `Idle` and not `Fault`                                                                              |
 | `LED ON` / `LED OFF` / `LED TOGGLE` | Controls the status RGB LED                                                   | never                                                                                                   |
