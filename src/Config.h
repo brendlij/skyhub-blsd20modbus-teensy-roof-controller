@@ -115,7 +115,7 @@ namespace RoofConfig
 
     // Time to let the BLSD20 finish rebooting after restart() before we
     // resume sending it configuration writes.
-    constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 800;
+    constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 1000;
 
     // A freshly observed open-end position is only re-persisted to EEPROM if
     // it differs from the stored value by more than this many counts, so
