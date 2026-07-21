@@ -26,15 +26,15 @@ namespace Pins
 
     // Endschalter, wired directly into the Teensy (not the motor controller)
     // so they remain a hard safety cutoff even if the Modbus link is unwell.
-    constexpr uint8_t LIMIT_OPEN = 6;
-    constexpr uint8_t LIMIT_CLOSE = 7;
+    constexpr uint8_t LIMIT_OPEN = 7;
+    constexpr uint8_t LIMIT_CLOSE = 6;
 
     // Inductive slowdown switches, one per side, mounted inboard of
     // LIMIT_OPEN/LIMIT_CLOSE. Mark the point where an auto move drops from
     // SPEED_AUTO_FAST to SPEED_AUTO_SLOW, replacing the old counts-based
     // guess. Full speed is allowed anywhere between the two.
-    constexpr uint8_t SLOW_OPEN = 14;
-    constexpr uint8_t SLOW_CLOSE = 15;
+    constexpr uint8_t SLOW_OPEN = 15;
+    constexpr uint8_t SLOW_CLOSE = 14;
 
     // Drives a relay whose contact sits in series inside the hardware E-stop
     // loop (LIMIT_OPEN's outer twin -> LIMIT_CLOSE's outer twin -> this
@@ -89,6 +89,11 @@ namespace RoofConfig
     // before actually dropping to SPEED_AUTO_SLOW, instead of slowing down
     // the instant the switch triggers.
     constexpr uint32_t SLOWDOWN_DELAY_MS = 3000;
+
+    // STOP while Opening/Closing is a soft stop: drop to SPEED_AUTO_SLOW
+    // first, then actually stop the motor after this delay, instead of a
+    // hard stop straight from full speed.
+    constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1000;
 
     // A homing run producing less travel than this is rejected as bogus
     // (e.g. a limit switch that never triggered).

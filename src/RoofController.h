@@ -64,8 +64,27 @@ public:
     // reported upstream (e.g. to the Pi5).
     bool hardStopActive() const { return _lastHardStopInput; }
 
+    // Raw sensor states, for diagnostics (e.g. checking wiring/direction).
+    bool btnOpenActive() const { return _btnOpen.isActive(); }
+    bool btnStopActive() const { return _btnStop.isActive(); }
+    bool btnCloseActive() const { return _btnClose.isActive(); }
+    bool modeSwitchAutoActive() const { return _modeSwitchAuto.isActive(); }
+    bool modeSwitchManualActive() const { return _modeSwitchManual.isActive(); }
+    bool limitOpenActive() const { return _limitOpen.isActive(); }
+    bool limitCloseActive() const { return _limitClose.isActive(); }
+    bool slowOpenActive() const { return _slowOpen.isActive(); }
+    bool slowCloseActive() const { return _slowClose.isActive(); }
+
+    // Direction as last commanded by the software (Forward/Backward, per
+    // RoofConfig::DIR_OPEN/DIR_CLOSE) vs. what the BLSD20 itself reports it's
+    // actually doing -- compare the two to spot a reversed motor/wiring.
+    BLSD20Direction commandedDirection() const { return _lastCommandedDir; }
+    BLSD20Status motorStatus() const { return _lastMotorStatus; }
+
     static const char* modeToString(RoofMode m);
     static const char* stateToString(RoofState s);
+    static const char* directionToString(BLSD20Direction d);
+    static const char* motorStatusToString(BLSD20Status s);
 
 private:
     enum class HomingStep : uint8_t
@@ -109,6 +128,7 @@ private:
     uint32_t _moveStartedMs = 0;
     bool _slowdownApplied = false;
     uint32_t _slowdownTriggeredMs = 0; // 0 = slow switch not (yet continuously) active
+    uint32_t _stopRequestedMs = 0; // 0 = no soft-stop in progress, see requestStop()
 
     // Manual-mode button arbitration: a lone press is armed for a short
     // grace window before it actually starts a move, so a genuine
@@ -124,6 +144,8 @@ private:
     uint32_t _lastPositionPollMs = 0;
     uint8_t _commFailCount = 0;
     bool _lastHardStopInput = false;
+    BLSD20Status _lastMotorStatus = BLSD20Status::Stopped;
+    BLSD20Direction _lastCommandedDir = RoofConfig::DIR_OPEN;
 
     uint32_t _restartReapplyAtMs = 0;
 };

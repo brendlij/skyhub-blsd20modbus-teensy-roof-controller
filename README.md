@@ -12,15 +12,15 @@ Roof/blind controller on a Teensy 4.1, driving a BLSD20 BLDC motor controller ov
 | 3       | BTN_STOP              |                                                                                                                                                                                         |
 | 4       | BTN_CLOSE             | edge-triggered in Auto, hold-to-run in Manual                                                                                                                                           |
 | 5       | MODE_SWITCH_AUTO      | left position of the 3-position rotary switch: C → GND, NO → this pin                                                                                                                   |
-| 6       | LIMIT_OPEN            | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
-| 7       | LIMIT_CLOSE           | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
+| 6       | LIMIT_CLOSE           | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
+| 7       | LIMIT_OPEN            | inductive, operational stop (Auto mode), read by Teensy                                                                                                                                 |
 | 8       | LED_R                 | status RGB LED, common cathode                                                                                                                                                          |
 | 9       | LED_G                 | status RGB LED                                                                                                                                                                          |
 | 10      | LED_B                 | status RGB LED                                                                                                                                                                          |
 | 11      | LED_BUTTON            | toggles status LED on/off                                                                                                                                                               |
 | 12      | MODE_SWITCH_MANUAL    | right position of the rotary switch: C → GND, NO → this pin; center position grounds neither → `RoofMode::Off` (lockout)                                                                |
-| 14      | SLOW_OPEN             | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                               |
-| 15      | SLOW_CLOSE            | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                              |
+| 14      | SLOW_CLOSE            | inductive, inboard of LIMIT_CLOSE — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                              |
+| 15      | SLOW_OPEN             | inductive, inboard of LIMIT_OPEN — triggers slowdown to `SPEED_AUTO_SLOW`                                                                                                               |
 | 16      | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy                                                                                                      |
 | 17      | CASE_FAN_RELAY        | output → relay module `IN`; fan wired to the relay's NC contact, so `LOW` = fan on (default at boot), `HIGH` = fan off. Toggled via the serial `FAN ON`/`FAN OFF`/`FAN TOGGLE` commands |
 
@@ -30,8 +30,8 @@ All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debou
 
 Per side (Open/Close), from inboard to outboard:
 
-1. **Slow switch** (`SLOW_OPEN`/`SLOW_CLOSE`, Teensy pins 14/15) — marks where an Auto move drops from `SPEED_AUTO_FAST` to `SPEED_AUTO_SLOW`. Full speed is allowed anywhere between the two. Optional: while `RoofConfig::AUTO_HAS_SLOW_SWITCHES = false` (default), these aren't required — an Auto move just stays at `SPEED_AUTO_SLOW` for the whole travel instead of ever using `SPEED_AUTO_FAST`. Set the flag `true` once they're wired up to get real fast/slow moves.
-2. **Operational limit switch** (`LIMIT_OPEN`/`LIMIT_CLOSE`, Teensy pins 6/7) — normal software stop point in Auto mode, and the homing reference points. This is the switch that actually stops an Auto move; `RoofConfig::AUTO_REQUIRES_HOMING = false` (default) lets `OPEN`/`CLOSE` work off these alone, without a prior `HOME` run — `percent` just stays `-1` and no calibration gets saved until homing actually succeeds.
+1. **Slow switch** (`SLOW_OPEN` pin 15 / `SLOW_CLOSE` pin 14) — marks where an Auto move drops from `SPEED_AUTO_FAST` to `SPEED_AUTO_SLOW`. Full speed is allowed anywhere between the two. Optional: while `RoofConfig::AUTO_HAS_SLOW_SWITCHES = false` (default), these aren't required — an Auto move just stays at `SPEED_AUTO_SLOW` for the whole travel instead of ever using `SPEED_AUTO_FAST`. Set the flag `true` once they're wired up to get real fast/slow moves.
+2. **Operational limit switch** (`LIMIT_OPEN` pin 7 / `LIMIT_CLOSE` pin 6) — normal software stop point in Auto mode, and the homing reference points. This is the switch that actually stops an Auto move; `RoofConfig::AUTO_REQUIRES_HOMING = false` (default) lets `OPEN`/`CLOSE` work off these alone, without a prior `HOME` run — `percent` just stays `-1` and no calibration gets saved until homing actually succeeds.
 3. **Hardware E-stop switch** (outermost, one per side) — **not wired to the Teensy at all.** Wired directly into a hardware series loop, independent of software/Modbus:
 
    ```
@@ -82,7 +82,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 | ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `OPEN`                              | Starts an Auto-mode opening move                                              | not in `RoofMode::Auto`, not `Idle`, not homed (only if `RoofConfig::AUTO_REQUIRES_HOMING`), `LIMIT_OPEN` already active, or motor has an error flag |
 | `CLOSE`                             | Starts an Auto-mode closing move                                              | same as `OPEN`, mirrored for the close side                                                             |
-| `STOP`                              | Stops the motor, clears any fault, returns to `Idle`                          | never — always succeeds                                                                                 |
+| `STOP`                              | If `Opening`/`Closing`: soft stop — drops to `SPEED_AUTO_SLOW`, then a real stop after `STOP_SLOWDOWN_DELAY_MS`. Otherwise: stops the motor immediately, clears any fault, returns to `Idle` | never — always succeeds (immediately, except while `Opening`/`Closing`)                                                                                 |
 | `HOME`                              | Runs the homing sequence (seek close → seek open)                             | `RoofMode::Off`, not `Idle`, or motor has an error flag                                                 |
 | `SAVE`                              | One-time provisioning: `saveSettings()` + `restart()` on the BLSD20           | not `Idle`                                                                                              |
 | `RESTART`                           | Reboots the BLSD20 only, then re-applies the runtime config once it's back up | not `Idle` and not `Fault`                                                                              |
@@ -96,7 +96,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and immediately on any state change, in addition to being sent in reply to an explicit `STATUS` command:
 
 ```
-STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 fan=1 hardstop=0
+STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 fan=1 hardstop=0 dir_cmd=FORWARD dir_motor=STOPPED btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0
 ```
 
 | Field                | Meaning                                                                                       |
@@ -112,4 +112,10 @@ STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 
 | `led`                | status LED on/off                                                                             |
 | `fan`                | case fan on/off                                                                               |
 | `hardstop`           | `1` if the BLSD20's `HARD_STOP` input is currently asserted (hardware E-stop loop tripped)    |
+| `dir_cmd`            | `FORWARD`/`BACKWARD` — direction last commanded by the software (`FORWARD` = `DIR_OPEN`)      |
+| `dir_motor`          | `STOPPED`/`FORWARD`/`BACKWARD` — what the BLSD20 itself reports it's doing right now; compare against `dir_cmd` to spot a reversed motor/wiring |
+| `btn_open`/`btn_stop`/`btn_close` | live (debounced) button states                                                  |
+| `sw_auto`/`sw_manual`| live 3-position rotary switch legs (both `0` = center/`Off`)                                  |
+| `limit_open`/`limit_close` | live operational limit switch states                                                   |
+| `slow_open`/`slow_close`   | live slowdown switch states                                                            |
 | `fault` / `errflags` | only present when `state=FAULT`: human-readable reason and the raw BLSD20 error bitmask (hex) |

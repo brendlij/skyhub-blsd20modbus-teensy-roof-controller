@@ -104,6 +104,28 @@ void SerialLink::printStatus()
     _port.print(_fanOn ? 1 : 0);
     _port.print(" hardstop=");
     _port.print(_roof.hardStopActive() ? 1 : 0);
+    _port.print(" dir_cmd=");
+    _port.print(RoofController::directionToString(_roof.commandedDirection()));
+    _port.print(" dir_motor=");
+    _port.print(RoofController::motorStatusToString(_roof.motorStatus()));
+    _port.print(" btn_open=");
+    _port.print(_roof.btnOpenActive() ? 1 : 0);
+    _port.print(" btn_stop=");
+    _port.print(_roof.btnStopActive() ? 1 : 0);
+    _port.print(" btn_close=");
+    _port.print(_roof.btnCloseActive() ? 1 : 0);
+    _port.print(" sw_auto=");
+    _port.print(_roof.modeSwitchAutoActive() ? 1 : 0);
+    _port.print(" sw_manual=");
+    _port.print(_roof.modeSwitchManualActive() ? 1 : 0);
+    _port.print(" limit_open=");
+    _port.print(_roof.limitOpenActive() ? 1 : 0);
+    _port.print(" limit_close=");
+    _port.print(_roof.limitCloseActive() ? 1 : 0);
+    _port.print(" slow_open=");
+    _port.print(_roof.slowOpenActive() ? 1 : 0);
+    _port.print(" slow_close=");
+    _port.print(_roof.slowCloseActive() ? 1 : 0);
     if (_roof.hasFault())
     {
         _port.print(" fault=");

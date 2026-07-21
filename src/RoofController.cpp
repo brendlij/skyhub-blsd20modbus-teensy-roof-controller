@@ -184,6 +184,14 @@ void RoofController::update()
         {
             updateAutoMove();
         }
+        if ((_state == RoofState::Opening || _state == RoofState::Closing) &&
+            _stopRequestedMs != 0 &&
+            millis() - _stopRequestedMs >= RoofConfig::STOP_SLOWDOWN_DELAY_MS)
+        {
+            stopMotor(false);
+            _state = RoofState::Idle;
+            _stopRequestedMs = 0;
+        }
         checkMotorHealth();
         break;
     case RoofState::Restarting:
@@ -391,6 +399,7 @@ void RoofController::updatePositionPoll()
     _lastSpeed = _motor.getSpeed();
     _lastCurrent = _motor.getCurrent();
     _lastErrorFlags = _motor.getErrorFlags();
+    _lastMotorStatus = _motor.getStatus();
 
     if (_motor.lastResult() == ModbusResult::Success)
     {
@@ -452,6 +461,7 @@ bool RoofController::startMove(BLSD20Direction dir, uint16_t speed)
     if (!_motor.setDirection(dir)) return false;
     if (!_motor.setSpeed(speed)) return false;
     if (!_motor.start()) return false;
+    _lastCommandedDir = dir;
     return true;
 }
 
@@ -473,6 +483,7 @@ bool RoofController::requestOpen()
     _state = RoofState::Opening;
     _slowdownApplied = startSlow;
     _slowdownTriggeredMs = 0;
+    _stopRequestedMs = 0;
     _moveStartedMs = millis();
     return true;
 }
@@ -495,12 +506,23 @@ bool RoofController::requestClose()
     _state = RoofState::Closing;
     _slowdownApplied = startSlow;
     _slowdownTriggeredMs = 0;
+    _stopRequestedMs = 0;
     _moveStartedMs = millis();
     return true;
 }
 
 bool RoofController::requestStop()
 {
+    if (_state == RoofState::Opening || _state == RoofState::Closing)
+    {
+        if (_stopRequestedMs == 0)
+        {
+            _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
+            _stopRequestedMs = millis();
+        }
+        return true;
+    }
+
     stopMotor(false);
     _state = RoofState::Idle;
     _faultReason = "";
@@ -585,6 +607,22 @@ const char* RoofController::stateToString(RoofState s)
     case RoofState::Closing: return "CLOSING";
     case RoofState::Fault: return "FAULT";
     case RoofState::Restarting: return "RESTARTING";
+    }
+    return "?";
+}
+
+const char* RoofController::directionToString(BLSD20Direction d)
+{
+    return d == BLSD20Direction::Forward ? "FORWARD" : "BACKWARD";
+}
+
+const char* RoofController::motorStatusToString(BLSD20Status s)
+{
+    switch (s)
+    {
+    case BLSD20Status::Stopped: return "STOPPED";
+    case BLSD20Status::Forward: return "FORWARD";
+    case BLSD20Status::Backward: return "BACKWARD";
     }
     return "?";
 }
