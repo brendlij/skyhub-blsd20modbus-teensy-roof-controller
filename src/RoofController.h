@@ -108,6 +108,7 @@ private:
     HomingStep _homingStep = HomingStep::SeekClose;
     uint32_t _moveStartedMs = 0;
     bool _slowdownApplied = false;
+    uint32_t _slowdownTriggeredMs = 0; // 0 = slow switch not (yet continuously) active
 
     // Manual-mode button arbitration: a lone press is armed for a short
     // grace window before it actually starts a move, so a genuine

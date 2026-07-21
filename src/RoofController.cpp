@@ -290,10 +290,21 @@ void RoofController::updateAutoMove()
             _state = RoofState::Idle;
             return;
         }
-        if (!_slowdownApplied && _slowOpen.isActive())
+        if (!_slowdownApplied)
         {
-            _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
-            _slowdownApplied = true;
+            if (!_slowOpen.isActive())
+            {
+                _slowdownTriggeredMs = 0;
+            }
+            else
+            {
+                if (_slowdownTriggeredMs == 0) _slowdownTriggeredMs = millis();
+                if (millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
+                {
+                    _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
+                    _slowdownApplied = true;
+                }
+            }
         }
     }
     else if (_state == RoofState::Closing)
@@ -305,10 +316,21 @@ void RoofController::updateAutoMove()
             _state = RoofState::Idle;
             return;
         }
-        if (!_slowdownApplied && _slowClose.isActive())
+        if (!_slowdownApplied)
         {
-            _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
-            _slowdownApplied = true;
+            if (!_slowClose.isActive())
+            {
+                _slowdownTriggeredMs = 0;
+            }
+            else
+            {
+                if (_slowdownTriggeredMs == 0) _slowdownTriggeredMs = millis();
+                if (millis() - _slowdownTriggeredMs >= RoofConfig::SLOWDOWN_DELAY_MS)
+                {
+                    _motor.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
+                    _slowdownApplied = true;
+                }
+            }
         }
     }
 }
@@ -450,6 +472,7 @@ bool RoofController::requestOpen()
     if (!startMove(RoofConfig::DIR_OPEN, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Opening;
     _slowdownApplied = startSlow;
+    _slowdownTriggeredMs = 0;
     _moveStartedMs = millis();
     return true;
 }
@@ -471,6 +494,7 @@ bool RoofController::requestClose()
     if (!startMove(RoofConfig::DIR_CLOSE, startSlow ? RoofConfig::SPEED_AUTO_SLOW : RoofConfig::SPEED_AUTO_FAST)) return false;
     _state = RoofState::Closing;
     _slowdownApplied = startSlow;
+    _slowdownTriggeredMs = 0;
     _moveStartedMs = millis();
     return true;
 }

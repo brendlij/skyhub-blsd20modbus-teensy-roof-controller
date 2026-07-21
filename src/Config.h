@@ -85,6 +85,11 @@ namespace RoofConfig
     constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
+    // An Auto move waits this long after SLOW_OPEN/SLOW_CLOSE first trips
+    // before actually dropping to SPEED_AUTO_SLOW, instead of slowing down
+    // the instant the switch triggers.
+    constexpr uint32_t SLOWDOWN_DELAY_MS = 3000;
+
     // A homing run producing less travel than this is rejected as bogus
     // (e.g. a limit switch that never triggered).
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000;
