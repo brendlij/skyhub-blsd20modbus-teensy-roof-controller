@@ -96,7 +96,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and immediately on any state change, in addition to being sent in reply to an explicit `STATUS` command:
 
 ```
-STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 led=1 fan=1 hardstop=0 dir_cmd=FORWARD dir_motor=STOPPED btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0
+STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 current=0 comm_fail=0 temp_mcu=32.5 temp_mosfet=30.1 temp_brake=28.4 led=1 fan=1 hardstop=0 dir_cmd=BACKWARD dir_motor=STOPPED btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0
 ```
 
 | Field                | Meaning                                                                                       |
@@ -109,10 +109,12 @@ STATUS mode=AUTO state=IDLE homed=1 calib_stale=0 percent=100 pos=48213 speed=0 
 | `pos`                | raw motor position counts                                                                     |
 | `speed`              | motor speed, rpm                                                                              |
 | `current`            | motor current, mA                                                                             |
+| `comm_fail`          | consecutive failed Modbus polls (0..`MAX_COMM_FAILURES`); hits the limit -> `FAULT`           |
+| `temp_mcu`/`temp_mosfet`/`temp_brake` | BLSD20 temperatures, °C                                                     |
 | `led`                | status LED on/off                                                                             |
 | `fan`                | case fan on/off                                                                               |
 | `hardstop`           | `1` if the BLSD20's `HARD_STOP` input is currently asserted (hardware E-stop loop tripped)    |
-| `dir_cmd`            | `FORWARD`/`BACKWARD` — direction last commanded by the software (`FORWARD` = `DIR_OPEN`)      |
+| `dir_cmd`            | `FORWARD`/`BACKWARD` — direction last commanded by the software (`BACKWARD` = `DIR_OPEN`)     |
 | `dir_motor`          | `STOPPED`/`FORWARD`/`BACKWARD` — what the BLSD20 itself reports it's doing right now; compare against `dir_cmd` to spot a reversed motor/wiring |
 | `btn_open`/`btn_stop`/`btn_close` | live (debounced) button states                                                  |
 | `sw_auto`/`sw_manual`| live 3-position rotary switch legs (both `0` = center/`Off`)                                  |

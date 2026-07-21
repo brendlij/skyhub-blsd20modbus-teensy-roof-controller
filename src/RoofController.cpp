@@ -138,6 +138,7 @@ void RoofController::update()
     _mode = readModeSwitch();
 
     updatePositionPoll();
+    updateTemperaturePoll();
     updateWatchdogRelay();
 
     if (_bootAutoRestartPending && millis() >= _bootAutoRestartAtMs)
@@ -422,6 +423,17 @@ void RoofController::updatePositionPoll()
     // Informational only: the hardware E-stop loop trips BLSD20 HARD_STOP
     // directly, without Teensy involvement. Doesn't affect _commFailCount.
     _lastHardStopInput = _motor.readHardStopInput();
+}
+
+void RoofController::updateTemperaturePoll()
+{
+    uint32_t now = millis();
+    if (now - _lastTempPollMs < RoofConfig::TEMP_POLL_MS) return;
+    _lastTempPollMs = now;
+
+    _lastTempMcu = _motor.getTemperatureMCU();
+    _lastTempMosfet = _motor.getTemperatureMosfet();
+    _lastTempBrake = _motor.getTemperatureBrake();
 }
 
 // Keeps the watchdog relay energized only while Modbus comms are healthy.

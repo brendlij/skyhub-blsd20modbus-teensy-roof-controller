@@ -73,6 +73,7 @@ namespace RoofConfig
 
     constexpr uint32_t DEBOUNCE_MS = 30;
     constexpr uint32_t POSITION_POLL_MS = 100;
+    constexpr uint32_t TEMP_POLL_MS = 2000; // temps change slowly, poll less often than position
     constexpr uint32_t STATUS_REPORT_MS = 500;
     constexpr uint32_t HOMING_TIMEOUT_MS = 160000;
     constexpr uint32_t MOVE_TIMEOUT_MS = 48000;

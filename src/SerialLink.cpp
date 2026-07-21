@@ -98,6 +98,14 @@ void SerialLink::printStatus()
     _port.print(_roof.motorSpeedRpm());
     _port.print(" current=");
     _port.print(_roof.motorCurrentMa());
+    _port.print(" comm_fail=");
+    _port.print(_roof.commFailCount());
+    _port.print(" temp_mcu=");
+    _port.print(_roof.tempMcuC(), 1);
+    _port.print(" temp_mosfet=");
+    _port.print(_roof.tempMosfetC(), 1);
+    _port.print(" temp_brake=");
+    _port.print(_roof.tempBrakeC(), 1);
     _port.print(" led=");
     _port.print(_led.isEnabled() ? 1 : 0);
     _port.print(" fan=");

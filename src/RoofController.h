@@ -52,6 +52,11 @@ public:
     bool hasFault() const { return _state == RoofState::Fault; }
     const char* faultReason() const { return _faultReason; }
     uint16_t lastErrorFlags() const { return _lastErrorFlags; }
+    uint8_t commFailCount() const { return _commFailCount; }
+
+    float tempMcuC() const { return _lastTempMcu; }
+    float tempMosfetC() const { return _lastTempMosfet; }
+    float tempBrakeC() const { return _lastTempBrake; }
 
     // True after a RESTART, until the roof next fully closes (which
     // re-zeroes the controller's position counter and confirms it's back in
@@ -104,6 +109,7 @@ private:
     void updateAutoMove();
     void updateHoming();
     void updatePositionPoll();
+    void updateTemperaturePoll();
     void checkMotorHealth();
     void updateWatchdogRelay();
 
@@ -155,6 +161,11 @@ private:
     bool _lastHardStopInput = false;
     BLSD20Status _lastMotorStatus = BLSD20Status::Stopped;
     BLSD20Direction _lastCommandedDir = RoofConfig::DIR_OPEN;
+
+    float _lastTempMcu = 0;
+    float _lastTempMosfet = 0;
+    float _lastTempBrake = 0;
+    uint32_t _lastTempPollMs = 0;
 
     uint32_t _restartReapplyAtMs = 0;
 };
