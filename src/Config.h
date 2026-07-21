@@ -77,7 +77,7 @@ namespace RoofConfig
     // for the whole travel, same as if the slow switch had already tripped.
     // Set true once the slow switches are wired up, to get real fast/slow
     // Auto moves.
-    constexpr bool AUTO_HAS_SLOW_SWITCHES = false;
+    constexpr bool AUTO_HAS_SLOW_SWITCHES = true;
 
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 2000;
