@@ -490,7 +490,9 @@ bool RoofController::requestOpen()
 {
     if (_mode != RoofMode::Auto) return false;
     if (_state == RoofState::Opening) return true;
-    if (_state != RoofState::Idle) return false;
+    // Also allow overriding a Closing move (e.g. mid soft-stop after STOP) --
+    // reverses immediately instead of waiting out the pending stop.
+    if (_state != RoofState::Idle && _state != RoofState::Closing) return false;
     if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
     if (_limitOpen.isActive()) return false;
     if (_motor.hasError())
@@ -513,7 +515,9 @@ bool RoofController::requestClose()
 {
     if (_mode != RoofMode::Auto) return false;
     if (_state == RoofState::Closing) return true;
-    if (_state != RoofState::Idle) return false;
+    // Also allow overriding an Opening move (e.g. mid soft-stop after STOP) --
+    // reverses immediately instead of waiting out the pending stop.
+    if (_state != RoofState::Idle && _state != RoofState::Opening) return false;
     if (RoofConfig::AUTO_REQUIRES_HOMING && !_homed) return false;
     if (_limitClose.isActive()) return false;
     if (_motor.hasError())
