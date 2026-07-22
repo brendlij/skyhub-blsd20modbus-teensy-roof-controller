@@ -40,6 +40,8 @@ namespace Pins
 
 namespace RoofConfig
 {
+    constexpr const char* FIRMWARE_VERSION = "0.1.0";
+
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
 
@@ -55,8 +57,8 @@ namespace RoofConfig
     constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
-    constexpr uint32_t SLOWDOWN_DELAY_MS = 5000;      // delay after SLOW_OPEN/SLOW_CLOSE first trips before dropping speed
-    constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500; // soft-stop delay after STOP while Opening/Closing
+    constexpr uint32_t ZONE_ENTRY_SLOWDOWN_DELAY_MS = 5000; // delay after entering a slow zone (moving toward its limit) before dropping speed
+    constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500;       // soft-stop delay after STOP while Opening/Closing
 
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000; // shorter homing runs are rejected as bogus
     constexpr uint32_t HOMING_LEG_PAUSE_MS = 500;     // pause between the SeekClose stop and starting SeekOpen

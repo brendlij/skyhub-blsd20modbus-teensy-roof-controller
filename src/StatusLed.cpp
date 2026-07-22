@@ -26,13 +26,14 @@ void StatusLed::setColor(bool r, bool g, bool b)
 }
 
 // Color scheme when enabled:
-//   solid green    - idle, homed
-//   blinking yellow- idle but not yet homed, or homing in progress
-//   solid blue     - opening
-//   solid magenta  - closing
-//   blinking white - restarting the drive
+//   solid green     - stopped, homed
+//   blinking yellow - stopped but not yet homed, homing in progress, or
+//                      re-applying config after a restart
+//   solid blue      - opening
+//   solid magenta   - closing
+//   solid cyan      - disabled (motor lockout)
 // Fault always blinks red, even if the LED has been switched off.
-void StatusLed::update(const RoofController& roof)
+void StatusLed::update(const StateMachine& sm)
 {
     _button.update();
     if (_button.wasPressed())
@@ -47,7 +48,7 @@ void StatusLed::update(const RoofController& roof)
         _blinkOn = !_blinkOn;
     }
 
-    if (roof.state() == RoofState::Fault)
+    if (sm.motion() == Motion::Fault)
     {
         setColor(_blinkOn, false, false);
         return;
@@ -59,27 +60,33 @@ void StatusLed::update(const RoofController& roof)
         return;
     }
 
-    switch (roof.state())
+    if (sm.isReapplyingConfig())
     {
-    case RoofState::Homing:
+        setColor(_blinkOn, _blinkOn, _blinkOn);
+        return;
+    }
+
+    switch (sm.motion())
+    {
+    case Motion::Homing:
         setColor(_blinkOn, _blinkOn, false);
         break;
-    case RoofState::Restarting:
-        setColor(_blinkOn, _blinkOn, _blinkOn);
-        break;
-    case RoofState::Opening:
+    case Motion::Opening:
         setColor(false, false, true);
         break;
-    case RoofState::Closing:
+    case Motion::Closing:
         setColor(true, false, true);
         break;
-    case RoofState::Idle:
-        if (roof.isHomed())
+    case Motion::Disabled:
+        setColor(false, true, true);
+        break;
+    case Motion::Stopped:
+        if (sm.isHomed())
             setColor(false, true, false);
         else
             setColor(_blinkOn, _blinkOn, false);
         break;
-    case RoofState::Uninitialized:
+    case Motion::Fault:
     default:
         setColor(false, false, false);
         break;
