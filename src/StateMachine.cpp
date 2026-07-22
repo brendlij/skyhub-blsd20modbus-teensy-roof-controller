@@ -467,6 +467,13 @@ bool StateMachine::requestStop()
     _percentMoveActive = false;
     if (_motion == Motion::Opening || _motion == Motion::Closing)
     {
+        if (!RoofConfig::STOP_USES_SOFT_SLOWDOWN)
+        {
+            _motionCtl.commandStop(false);
+            _motion = Motion::Stopped;
+            _stopRequestedMs = 0;
+            return true;
+        }
         if (_stopRequestedMs == 0)
         {
             _motionCtl.beginSoftStop();
