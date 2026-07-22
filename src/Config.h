@@ -50,7 +50,7 @@ namespace RoofConfig
     constexpr bool AUTO_REQUIRES_HOMING = false;           // require a successful HOME before Auto OPEN/CLOSE
     constexpr bool AUTO_HAS_SLOW_SWITCHES = true;          // false = always SPEED_AUTO_SLOW, never SPEED_AUTO_FAST
     constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false; // false = Manual ignores LIMIT_OPEN/LIMIT_CLOSE entirely
-    constexpr bool STOP_USES_SOFT_SLOWDOWN = true;         // false = STOP halts immediately, skipping the SPEED_AUTO_SLOW coast (STOP_SLOWDOWN_DELAY_MS)
+    constexpr bool STOP_USES_SOFT_SLOWDOWN = false;        // false = STOP halts immediately, skipping the SPEED_AUTO_SLOW coast (STOP_SLOWDOWN_DELAY_MS)
 
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 1500;
