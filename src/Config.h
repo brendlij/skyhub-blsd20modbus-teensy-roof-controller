@@ -80,7 +80,7 @@ namespace RoofConfig
     constexpr uint32_t TEMP_POLL_MS = 2000; // temps change slowly, poll less often than position
     constexpr uint32_t STATUS_REPORT_MS = 500;
     constexpr uint32_t HOMING_TIMEOUT_MS = 160000;
-    constexpr uint32_t MOVE_TIMEOUT_MS = 48000;
+    constexpr uint32_t MOVE_TIMEOUT_MS = 80000;
     constexpr uint8_t MAX_COMM_FAILURES = 3;
 
     constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 1000;        // let the BLSD20 finish rebooting before reconfiguring
