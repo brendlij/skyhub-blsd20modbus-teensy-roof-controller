@@ -40,6 +40,8 @@ namespace Pins
 
 namespace RoofConfig
 {
+    constexpr const char *FIRMWARE_VERSION = "0.1.0";
+
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
 
@@ -48,15 +50,18 @@ namespace RoofConfig
     constexpr bool AUTO_REQUIRES_HOMING = false;           // require a successful HOME before Auto OPEN/CLOSE
     constexpr bool AUTO_HAS_SLOW_SWITCHES = true;          // false = always SPEED_AUTO_SLOW, never SPEED_AUTO_FAST
     constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false; // false = Manual ignores LIMIT_OPEN/LIMIT_CLOSE entirely
+    constexpr bool STOP_USES_SOFT_SLOWDOWN = false;        // false = STOP halts immediately, skipping the SPEED_AUTO_SLOW coast (STOP_SLOWDOWN_DELAY_MS)
 
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
-    constexpr uint16_t SPEED_AUTO_FAST = 2000;
+    constexpr uint16_t SPEED_AUTO_FAST = 1500;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;
     constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
-    constexpr uint32_t SLOWDOWN_DELAY_MS = 5000;      // delay after SLOW_OPEN/SLOW_CLOSE first trips before dropping speed
-    constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500; // soft-stop delay after STOP while Opening/Closing
+    constexpr uint32_t ZONE_ENTRY_SLOWDOWN_DELAY_MS = 8000; // delay after entering a slow zone (moving toward its limit) before dropping speed
+    constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500;       // soft-stop delay after STOP while Opening/Closing
+
+    constexpr uint8_t PERCENT_APPROACH_BAND = 10; // PERCENT moves drop to SPEED_AUTO_SLOW once within this many percentage points of the target
 
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000; // shorter homing runs are rejected as bogus
     constexpr uint32_t HOMING_LEG_PAUSE_MS = 500;     // pause between the SeekClose stop and starting SeekOpen
@@ -76,7 +81,7 @@ namespace RoofConfig
     constexpr uint32_t TEMP_POLL_MS = 2000; // temps change slowly, poll less often than position
     constexpr uint32_t STATUS_REPORT_MS = 500;
     constexpr uint32_t HOMING_TIMEOUT_MS = 160000;
-    constexpr uint32_t MOVE_TIMEOUT_MS = 48000;
+    constexpr uint32_t MOVE_TIMEOUT_MS = 64000;
     constexpr uint8_t MAX_COMM_FAILURES = 3;
 
     constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 1000;        // let the BLSD20 finish rebooting before reconfiguring
