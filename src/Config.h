@@ -57,7 +57,7 @@ namespace RoofConfig
     constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
-    constexpr uint32_t ZONE_ENTRY_SLOWDOWN_DELAY_MS = 5000; // delay after entering a slow zone (moving toward its limit) before dropping speed
+    constexpr uint32_t ZONE_ENTRY_SLOWDOWN_DELAY_MS = 8000; // delay after entering a slow zone (moving toward its limit) before dropping speed
     constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500;       // soft-stop delay after STOP while Opening/Closing
 
     constexpr uint8_t PERCENT_APPROACH_BAND = 10; // PERCENT moves drop to SPEED_AUTO_SLOW once within this many percentage points of the target
@@ -80,7 +80,7 @@ namespace RoofConfig
     constexpr uint32_t TEMP_POLL_MS = 2000; // temps change slowly, poll less often than position
     constexpr uint32_t STATUS_REPORT_MS = 500;
     constexpr uint32_t HOMING_TIMEOUT_MS = 160000;
-    constexpr uint32_t MOVE_TIMEOUT_MS = 80000;
+    constexpr uint32_t MOVE_TIMEOUT_MS = 64000;
     constexpr uint8_t MAX_COMM_FAILURES = 3;
 
     constexpr uint32_t RESTART_REAPPLY_DELAY_MS = 1000;        // let the BLSD20 finish rebooting before reconfiguring
