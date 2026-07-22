@@ -54,7 +54,7 @@ bool MotionController::commandHomingMove(Direction dir)
     return true;
 }
 
-void MotionController::update(Zone currentZone)
+void MotionController::update(Zone currentZone, bool approachSlowdown)
 {
     if (!_autoMoveActive) return;
 
@@ -64,12 +64,16 @@ void MotionController::update(Zone currentZone)
         _zoneChangedMs = millis();
     }
 
-    uint16_t desired = RoofConfig::AUTO_HAS_SLOW_SWITCHES ? speedForZone(_zone, _direction) : RoofConfig::SPEED_AUTO_SLOW;
-    bool wantSlow = desired == RoofConfig::SPEED_AUTO_SLOW;
+    uint16_t zoneDesired = RoofConfig::AUTO_HAS_SLOW_SWITCHES ? speedForZone(_zone, _direction) : RoofConfig::SPEED_AUTO_SLOW;
+    bool zoneWantsSlow = zoneDesired == RoofConfig::SPEED_AUTO_SLOW;
+    bool wantSlow = zoneWantsSlow || approachSlowdown;
 
     if (wantSlow && !_slowApplied)
     {
-        if (millis() - _zoneChangedMs >= RoofConfig::ZONE_ENTRY_SLOWDOWN_DELAY_MS)
+        // approachSlowdown is a smooth, precomputed approach (Hall-counter
+        // percent vs. target) -- apply it immediately, skipping the entry
+        // delay that only exists to debounce a physical switch trip.
+        if (approachSlowdown || millis() - _zoneChangedMs >= RoofConfig::ZONE_ENTRY_SLOWDOWN_DELAY_MS)
         {
             _driver.setSpeed(RoofConfig::SPEED_AUTO_SLOW);
             _slowApplied = true;

@@ -28,6 +28,7 @@ public:
     bool cmdResetFault() { return _sm.requestResetFault(); }
     bool cmdRestart() { return _sm.requestRestart(); }
     bool cmdFwUpdate() { return _sm.requestFwUpdate(); }
+    bool cmdPercent(uint8_t percent) { return _sm.requestMoveToPercent(percent); }
 
     // Raw sensor states, for diagnostics (e.g. checking wiring/direction).
     bool btnOpenActive() const { return _btnOpen.isActive(); }

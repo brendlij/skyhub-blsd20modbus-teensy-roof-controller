@@ -141,6 +141,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 | `RESETFAULT`                         | Clears a `Fault` by rebooting the BLSD20 (clears its latched error register) and re-applying config | not currently `Fault`                                                                     |
 | `RESTART`                            | Reboots the BLSD20 deliberately (e.g. after a wiring change), then re-applies config once it's back up | not `Stopped`, `Disabled`, or `Fault`                                                     |
 | `FWUPDATE`                           | Drops the Teensy into its USB bootloader (Spec Abschnitt 14); flashing itself is done externally by SkyHub/`teensy_loader_cli` | currently `Opening`/`Closing`/`Homing`                                          |
+| `PERCENT <0-100>`                    | Starts an Auto-mode move toward the given Hall-counter-derived `percent`; drops to `SPEED_AUTO_SLOW` once within `RoofConfig::PERCENT_APPROACH_BAND` points of the target. Best-effort/comfort only — see Hall Counter note below; the physical limit switches remain the real stop for `0`/`100`. A plain `OPEN`/`CLOSE` while a `PERCENT` move is in progress drops the target and continues to the full limit | not in `RoofMode::Auto`, not `Stopped`, not homed (always, regardless of `AUTO_REQUIRES_HOMING`), out-of-range value, `Position` already past the target's limit, or motor has an error flag |
 | `LED ON` / `LED OFF` / `LED TOGGLE`  | Controls the status RGB LED                                                    | never                                                                                                    |
 | `FAN ON` / `FAN OFF` / `FAN TOGGLE`  | Controls the case fan relay (see `CASE_FAN_RELAY`, pin 17)                     | never                                                                                                    |
 | `STATUS`                             | Prints a `STATUS ...` line immediately (no `OK`/`ERR` reply)                   | never                                                                                                    |
@@ -151,7 +152,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and immediately on any `Motion` change, in addition to being sent in reply to an explicit `STATUS` command:
 
 ```
-STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW percent=100 hall=48213 speed=0 target_speed=0 current=0 motor_enabled=1 homed=1 calib_stale=0 modbus_connected=1 comm_fail=0 temp_mcu=32.5 temp_mosfet=30.1 temp_brake=28.4 led=1 fan=1 hardstop=0 btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0 fw_version=0.1.0
+STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW percent=100 target_percent=-1 hall=48213 speed=0 target_speed=0 current=0 motor_enabled=1 homed=1 calib_stale=0 modbus_connected=1 comm_fail=0 temp_mcu=32.5 temp_mosfet=30.1 temp_brake=28.4 led=1 fan=1 hardstop=0 btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0 fw_version=0.1.0
 ```
 
 | Field                        | Meaning                                                                                       |
@@ -161,7 +162,8 @@ STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW perc
 | `position`                    | `UNKNOWN` / `OPEN` / `CLOSED` — no intermediate value (Spec Abschnitt 5)                      |
 | `direction`                   | `NONE` / `OPENING` / `CLOSING` — set solely by motor commands, never sensors                  |
 | `zone`                        | `UNKNOWN` / `OPEN_SLOW` / `MAIN` / `CLOSE_SLOW`                                                |
-| `percent`                     | 0–100, or `-1` if not homed — comfort/UI only, derived from the Hall counter                  |
+| `percent`                     | 0–100, or `-1` if not homed — derived from the Hall counter; comfort/UI, and also the (best-effort) input `PERCENT` moves toward |
+| `target_percent`              | 0–100 target of an in-progress `PERCENT` move, or `-1` if none is active                       |
 | `hall`                        | raw Hall counter (motor position counts) — comfort only, see Hall Counter section above        |
 | `speed`/`target_speed`        | actual / commanded motor speed, rpm                                                           |
 | `current`                     | motor current, mA                                                                             |

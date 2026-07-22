@@ -57,6 +57,18 @@ void SerialLink::handleLine(const String& lineIn)
     else if (line == "RESETFAULT") ok = _cmd.cmdResetFault();
     else if (line == "RESTART") ok = _cmd.cmdRestart();
     else if (line == "FWUPDATE") ok = _cmd.cmdFwUpdate();
+    else if (line.startsWith("PERCENT "))
+    {
+        long val = line.substring(8).toInt();
+        if (val < 0 || val > 100)
+        {
+            _port.print("ERR invalid_percent ");
+            _port.println(line);
+            return;
+        }
+        ok = _cmd.cmdPercent((uint8_t)val);
+        useRejectReason = true;
+    }
     else if (line == "LED ON") { _led.setEnabled(true); ok = true; }
     else if (line == "LED OFF") { _led.setEnabled(false); ok = true; }
     else if (line == "LED TOGGLE") { _led.toggle(); ok = true; }
@@ -114,6 +126,8 @@ void SerialLink::printStatus()
     _port.print(StateMachine::zoneToString(_sm.zone()));
     _port.print(" percent=");
     _port.print(_sm.percentOpen());
+    _port.print(" target_percent=");
+    _port.print(_sm.targetPercent());
     _port.print(" hall=");
     _port.print(_sm.hallCounter());
     _port.print(" speed=");

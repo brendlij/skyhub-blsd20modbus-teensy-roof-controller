@@ -41,6 +41,16 @@ public:
     bool requestRestart();
     bool requestFwUpdate();
 
+    // Moves toward a target open-percentage instead of a limit switch.
+    // Comfort feature built on top of the Hall-counter percentOpen()
+    // readout -- requires isHomed() regardless of AUTO_REQUIRES_HOMING
+    // (which only gates OPEN/CLOSE), since a percentage is meaningless
+    // without calibration. The physical limit switches remain the hard
+    // stop exactly as for a full OPEN/CLOSE; this only adds an earlier,
+    // best-effort stop plus a slowdown band (RoofConfig::PERCENT_APPROACH_BAND)
+    // before the target.
+    bool requestMoveToPercent(uint8_t percent);
+
     // Manual (hold-to-run) moves -- continuous, so start/stop are separate
     // calls rather than a single request the way Auto's OPEN/CLOSE are.
     bool beginManualMove(Direction dir);
@@ -52,6 +62,7 @@ public:
     Zone zone() const { return _zone; }
     bool isHomed() const { return _homed; }
     int8_t percentOpen() const; // 0..100, or -1 if not homed -- comfort/UI only, see Hall Counter note below
+    int8_t targetPercent() const { return _percentMoveActive ? _targetPercent : -1; } // -1 if no PERCENT move in progress
     int32_t hallCounter() const { return _driver.position(); }
     uint16_t currentSpeedRpm() const { return _driver.speed(); }
     uint16_t targetSpeedRpm() const { return _driver.targetSpeed(); }
@@ -131,6 +142,9 @@ private:
     uint32_t _moveStartedMs = 0;
     uint32_t _homingPauseUntilMs = 0;
     uint32_t _stopRequestedMs = 0; // 0 = no soft-stop in progress, see requestStop()
+
+    bool _percentMoveActive = false; // true while Opening/Closing toward a requestMoveToPercent() target
+    int8_t _targetPercent = -1;
 
     // The watchdog relay pin starts LOW at boot (fail-safe), which briefly
     // breaks the hardware E-stop loop and latches EmergencyStop on the

@@ -30,7 +30,15 @@ public:
     // slow immediately (see commandAutoMove()); this handles the slowdown
     // transition while already moving, smoothed by
     // RoofConfig::ZONE_ENTRY_SLOWDOWN_DELAY_MS.
-    void update(Zone currentZone);
+    //
+    // approachSlowdown: set by the State Machine while nearing a PERCENT
+    // target (comfort-only, Hall-counter-derived -- see
+    // StateMachine::requestMoveToPercent()). OR'd with the physical-zone
+    // slowdown so both sources share one speed arbitration instead of
+    // racing calls to setSpeed(); unlike the zone case this applies
+    // immediately, no entry delay, since it's a smooth precomputed approach
+    // rather than a debounced switch trip.
+    void update(Zone currentZone, bool approachSlowdown);
 
     // Soft-stop: drop to slow speed but keep moving (used while coasting
     // through RoofConfig::STOP_SLOWDOWN_DELAY_MS after a STOP request).

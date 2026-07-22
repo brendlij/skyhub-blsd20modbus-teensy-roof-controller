@@ -132,6 +132,7 @@ void StateMachine::updateAutoMove()
         _motionCtl.commandStop(false);
         refreshCalibrationAtLimit(false);
         _motion = Motion::Stopped;
+        _percentMoveActive = false;
         return;
     }
     if (_motion == Motion::Closing && _position == Position::Closed)
@@ -139,10 +140,29 @@ void StateMachine::updateAutoMove()
         _motionCtl.commandStop(false);
         refreshCalibrationAtLimit(true);
         _motion = Motion::Stopped;
+        _percentMoveActive = false;
         return;
     }
 
-    _motionCtl.update(_zone);
+    // PERCENT-target stop: best-effort, Hall-counter-derived -- the limit
+    // switch checks above always take priority and remain the real safety
+    // stop (Spec Abschnitt 8: Hall counter is comfort-only).
+    bool approachSlowdown = false;
+    if (_percentMoveActive)
+    {
+        int8_t current = percentOpen();
+        bool reached = (_motion == Motion::Opening) ? (current >= _targetPercent) : (current <= _targetPercent);
+        if (reached)
+        {
+            _motionCtl.commandStop(false);
+            _motion = Motion::Stopped;
+            _percentMoveActive = false;
+            return;
+        }
+        approachSlowdown = abs((int)current - (int)_targetPercent) <= RoofConfig::PERCENT_APPROACH_BAND;
+    }
+
+    _motionCtl.update(_zone, approachSlowdown);
 }
 
 void StateMachine::updateHoming()
@@ -331,7 +351,10 @@ bool StateMachine::requestOpen()
     _lastRejectReason = "";
     if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
     if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
-    if (_motion == Motion::Opening) return true;
+    // Already opening -- e.g. overriding an in-progress PERCENT move -- just
+    // drop the target and continue on to the full limit instead of stopping
+    // early.
+    if (_motion == Motion::Opening) { _percentMoveActive = false; return true; }
     // Reversing straight into a still-decelerating (or still-moving) motor
     // isn't reliable on this hardware -- require a full stop before
     // accepting the opposite direction. Callers should STOP and wait for
@@ -366,7 +389,10 @@ bool StateMachine::requestClose()
     _lastRejectReason = "";
     if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
     if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
-    if (_motion == Motion::Closing) return true;
+    // Already closing -- e.g. overriding an in-progress PERCENT move -- just
+    // drop the target and continue on to the full limit instead of stopping
+    // early.
+    if (_motion == Motion::Closing) { _percentMoveActive = false; return true; }
     if (_motion != Motion::Stopped)
     {
         _lastRejectReason = (_stopRequestedMs != 0) ? "stopping" : "busy";
@@ -392,11 +418,53 @@ bool StateMachine::requestClose()
     return true;
 }
 
+bool StateMachine::requestMoveToPercent(uint8_t percent)
+{
+    _lastRejectReason = "";
+    if (percent > 100) { _lastRejectReason = "invalid_percent"; return false; }
+    if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
+    if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
+    // Unconditional -- unlike OPEN/CLOSE's RoofConfig::AUTO_REQUIRES_HOMING
+    // gate, a percentage is meaningless without calibration.
+    if (!_homed) { _lastRejectReason = "not_homed"; return false; }
+    if (_motion != Motion::Stopped)
+    {
+        _lastRejectReason = (_stopRequestedMs != 0) ? "stopping" : "busy";
+        return false;
+    }
+    if (_driver.hasError())
+    {
+        enterFault("motor error flag set");
+        _lastRejectReason = "motor_error";
+        return false;
+    }
+
+    int8_t current = percentOpen();
+    if (current == (int8_t)percent) return true; // already there
+
+    Direction dir = (percent > (uint8_t)current) ? Direction::Opening : Direction::Closing;
+    if (dir == Direction::Opening && _position == Position::Open) { _lastRejectReason = "limit_open_active"; return false; }
+    if (dir == Direction::Closing && _position == Position::Closed) { _lastRejectReason = "limit_close_active"; return false; }
+
+    if (!_motionCtl.commandAutoMove(dir, _zone))
+    {
+        _lastRejectReason = "motor_comm_error";
+        return false;
+    }
+    _motion = (dir == Direction::Opening) ? Motion::Opening : Motion::Closing;
+    _percentMoveActive = true;
+    _targetPercent = (int8_t)percent;
+    _stopRequestedMs = 0;
+    _moveStartedMs = millis();
+    return true;
+}
+
 // STOP besitzt höchste Priorität (Spec Abschnitt 10). A running Auto move
 // gets one graceful soft-stop step (slow down, then actually stop --
 // completed in tick()); every other state stops the motor immediately.
 bool StateMachine::requestStop()
 {
+    _percentMoveActive = false;
     if (_motion == Motion::Opening || _motion == Motion::Closing)
     {
         if (_stopRequestedMs == 0)

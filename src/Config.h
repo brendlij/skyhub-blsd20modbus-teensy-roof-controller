@@ -40,7 +40,7 @@ namespace Pins
 
 namespace RoofConfig
 {
-    constexpr const char* FIRMWARE_VERSION = "0.1.0";
+    constexpr const char *FIRMWARE_VERSION = "0.1.0";
 
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
@@ -52,13 +52,15 @@ namespace RoofConfig
     constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false; // false = Manual ignores LIMIT_OPEN/LIMIT_CLOSE entirely
 
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
-    constexpr uint16_t SPEED_AUTO_FAST = 2000;
+    constexpr uint16_t SPEED_AUTO_FAST = 1500;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;
     constexpr uint16_t SPEED_MANUAL = 500;
     constexpr uint16_t SPEED_HOMING = 500;
 
     constexpr uint32_t ZONE_ENTRY_SLOWDOWN_DELAY_MS = 5000; // delay after entering a slow zone (moving toward its limit) before dropping speed
     constexpr uint32_t STOP_SLOWDOWN_DELAY_MS = 1500;       // soft-stop delay after STOP while Opening/Closing
+
+    constexpr uint8_t PERCENT_APPROACH_BAND = 10; // PERCENT moves drop to SPEED_AUTO_SLOW once within this many percentage points of the target
 
     constexpr int32_t MIN_HOMING_RANGE_COUNTS = 1000; // shorter homing runs are rejected as bogus
     constexpr uint32_t HOMING_LEG_PAUSE_MS = 500;     // pause between the SeekClose stop and starting SeekOpen
