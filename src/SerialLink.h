@@ -13,11 +13,13 @@
 //
 // Commands (case-insensitive): OPEN, CLOSE, STOP, HOME, ENABLE, DISABLE,
 // RESETFAULT, RESTART, FWUPDATE, LED ON, LED OFF, LED TOGGLE, FAN ON,
-// FAN OFF, FAN TOGGLE, STATUS. Each is answered with "OK <cmd>" or
-// "ERR <reason> <cmd>". Telemetry is pushed unprompted as
-// "STATUS key=value ..." lines, both periodically and immediately on any
-// Motion change -- SkyHub should never need to compute roof state itself
-// (Spec Abschnitt 13).
+// FAN OFF, FAN TOGGLE, STATUS, INFO. Each is answered with "OK <cmd>" or
+// "ERR <reason> <cmd>", except the two query commands which answer with
+// their own payload: STATUS with a "STATUS key=value ..." line, INFO with a
+// one-line JSON object of the build metadata (see FirmwareInfo.h).
+// Telemetry is pushed unprompted as "STATUS key=value ..." lines, both
+// periodically and immediately on any Motion change -- SkyHub should never
+// need to compute roof state itself (Spec Abschnitt 13).
 class SerialLink
 {
 public:

@@ -39,7 +39,14 @@ public:
     bool requestDisable();
     bool requestResetFault();
     bool requestRestart();
-    bool requestFwUpdate();
+
+    // Firmware update is a two-step affair, deliberately split so the serial
+    // layer can acknowledge the command before the USB link dies:
+    // fwUpdateAllowed() is the pure policy check (no side effects), and
+    // enterBootloader() performs the jump and never returns. Callers must
+    // check the former first.
+    bool fwUpdateAllowed() const;
+    void enterBootloader();
 
     // Moves toward a target open-percentage instead of a limit switch.
     // Comfort feature built on top of the Hall-counter percentOpen()

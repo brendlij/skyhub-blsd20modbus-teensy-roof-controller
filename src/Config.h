@@ -41,10 +41,10 @@ namespace Pins
     constexpr uint8_t LED_BUTTON = 11; // toggles the LED on/off
 }
 
+// Firmware version, board id and the rest of the build metadata live in
+// FirmwareInfo.h -- deliberately not duplicated here.
 namespace RoofConfig
 {
-    constexpr const char *FIRMWARE_VERSION = "0.1.0";
-
     constexpr uint8_t MODBUS_SLAVE_ID = 1;
     constexpr uint32_t MODBUS_BAUD = 115200;
 
@@ -92,4 +92,6 @@ namespace RoofConfig
     constexpr int32_t CALIBRATION_DRIFT_TOLERANCE_COUNTS = 50; // EEPROM re-write threshold for the open-end position
     constexpr uint32_t HOME_COMBO_HOLD_MS = 3000;              // Manual: hold Open+Close together this long to HOME
     constexpr uint32_t MANUAL_COMBO_GRACE_MS = 150;            // grace window to detect a combo vs. a lone press
+
+    constexpr uint32_t FWUPDATE_ACK_GRACE_MS = 150; // let "OK FWUPDATE" reach the host over USB before jumping to the bootloader
 }

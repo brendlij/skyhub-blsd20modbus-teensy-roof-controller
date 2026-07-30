@@ -562,15 +562,32 @@ bool StateMachine::requestRestart()
 }
 
 // Firmware updates aren't part of the firmware itself (Spec Abschnitt 14):
-// this only drops the Teensy into its USB bootloader so SkyHub or
+// we only drop the Teensy into its USB bootloader so SkyHub or
 // teensy_loader_cli can flash new firmware; the flashing itself is external.
-bool StateMachine::requestFwUpdate()
+//
+// Refused while the roof is under power, so an update can never interrupt a
+// move. Stopped/Disabled/Fault are all fine.
+bool StateMachine::fwUpdateAllowed() const
 {
-    if (_motion == Motion::Opening || _motion == Motion::Closing || _motion == Motion::Homing) return false;
+    return _motion != Motion::Opening && _motion != Motion::Closing && _motion != Motion::Homing;
+}
+
+// Jumps into HalfKay. Does not return (except on non-Teensy builds), so the
+// caller must have flushed anything it still wanted to say.
+//
+// No output cleanup happens here, deliberately: the reset reverts every GPIO
+// to a high-impedance input, which de-energizes MODBUS_WATCHDOG_RELAY and so
+// opens the HARD_STOP chain at the BLSD20 -- the motor is cut at the drive,
+// independently of Modbus, exactly as on a power loss. Driving the pins low
+// first would only duplicate that, and issuing a Modbus stop beforehand could
+// block on a comms timeout at the worst possible moment. The case fan relay
+// falls back to its NC contact (fan on), which is the safe direction for
+// cooling anyway.
+void StateMachine::enterBootloader()
+{
 #if defined(TEENSYDUINO)
     _reboot_Teensyduino_(); // declared by the Teensy core (core_pins.h)
 #endif
-    return true;
 }
 
 bool StateMachine::beginManualMove(Direction dir)

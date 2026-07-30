@@ -27,8 +27,11 @@ public:
     bool cmdDisable() { return _sm.requestDisable(); }
     bool cmdResetFault() { return _sm.requestResetFault(); }
     bool cmdRestart() { return _sm.requestRestart(); }
-    bool cmdFwUpdate() { return _sm.requestFwUpdate(); }
     bool cmdPercent(uint8_t percent) { return _sm.requestMoveToPercent(percent); }
+
+    // Two-step, unlike the commands above -- see StateMachine::fwUpdateAllowed().
+    bool cmdFwUpdateAllowed() const { return _sm.fwUpdateAllowed(); }
+    void cmdEnterBootloader() { _sm.enterBootloader(); }
 
     // Raw sensor states, for diagnostics (e.g. checking wiring/direction).
     bool btnOpenActive() const { return _btnOpen.isActive(); }

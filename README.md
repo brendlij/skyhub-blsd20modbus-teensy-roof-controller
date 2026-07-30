@@ -127,7 +127,7 @@ The watchdog relay pin starts `LOW` at boot (fail-safe) until Modbus comms are p
 
 ## Host link
 
-USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, case-insensitive. Every command gets exactly one reply line: `OK <CMD>` or `ERR <reason> <CMD>`. See [src/SerialLink.cpp](src/SerialLink.cpp). Movement/system commands are dispatched through the Command Layer, so USB and the physical buttons obey identical guards — SkyHub never implements its own movement logic (Spec Abschnitt 2).
+USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, case-insensitive. Every command gets exactly one reply line: `OK <CMD>` or `ERR <reason> <CMD>` — except the query commands `STATUS` and `INFO`, which answer with their own payload line instead. See [src/SerialLink.cpp](src/SerialLink.cpp). Movement/system commands are dispatched through the Command Layer, so USB and the physical buttons obey identical guards — SkyHub never implements its own movement logic (Spec Abschnitt 2).
 
 ### Commands
 
@@ -141,11 +141,12 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 | `DISABLE`                            | Motor lockout: rejects `OPEN`/`CLOSE`/`HOME` until `ENABLE`d again             | not currently `Stopped`                                                                                  |
 | `RESETFAULT`                         | Clears a `Fault` by rebooting the BLSD20 (clears its latched error register) and re-applying config | not currently `Fault`                                                                     |
 | `RESTART`                            | Reboots the BLSD20 deliberately (e.g. after a wiring change), then re-applies config once it's back up | not `Stopped`, `Disabled`, or `Fault`                                                     |
-| `FWUPDATE`                           | Drops the Teensy into its USB bootloader (Spec Abschnitt 14); flashing itself is done externally by SkyHub/`teensy_loader_cli` | currently `Opening`/`Closing`/`Homing`                                          |
+| `FWUPDATE`                           | Replies `OK FWUPDATE`, waits `FWUPDATE_ACK_GRACE_MS` so the reply reaches the host, then drops the Teensy into its USB bootloader (Spec Abschnitt 14); flashing itself is done externally by SkyHub/`teensy_loader_cli` | currently `Opening`/`Closing`/`Homing`                                          |
 | `PERCENT <0-100>`                    | Starts an Auto-mode move toward the given Hall-counter-derived `percent`; drops to `SPEED_AUTO_SLOW` once within `RoofConfig::PERCENT_APPROACH_BAND` points of the target. Best-effort/comfort only — see Hall Counter note below; the physical limit switches remain the real stop for `0`/`100`. A plain `OPEN`/`CLOSE` while a `PERCENT` move is in progress drops the target and continues to the full limit | not in `RoofMode::Auto`, not `Stopped`, not homed (always, regardless of `AUTO_REQUIRES_HOMING`), out-of-range value, `Position` already past the target's limit, or motor has an error flag |
 | `LED ON` / `LED OFF` / `LED TOGGLE`  | Controls the status RGB LED                                                    | never                                                                                                    |
 | `FAN ON` / `FAN OFF` / `FAN TOGGLE`  | Controls the case fan relay (see `CASE_FAN_RELAY`, pin 17)                     | never                                                                                                    |
 | `STATUS`                             | Prints a `STATUS ...` line immediately (no `OK`/`ERR` reply)                   | never                                                                                                    |
+| `INFO`                               | Prints the build metadata as one line of JSON (no `OK`/`ERR` reply) — see Firmware metadata below | never                                                                                 |
 | _(anything else)_                    | —                                                                              | `ERR unknown_command <CMD>`                                                                              |
 
 ### Telemetry
@@ -181,5 +182,93 @@ STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW perc
 | `limit_open`/`limit_close`    | live operational limit switch states                                                   |
 | `slow_open`/`slow_close`      | live slowdown switch states                                                            |
 | `rain`                        | `1` if the rain sensor reads wet; polarity per `RoofConfig::RAIN_SENSOR_INVERTED`              |
-| `fw_version`                  | `RoofConfig::FIRMWARE_VERSION`                                                                 |
+| `fw_version`                  | `FirmwareInfo::VERSION` — see Firmware metadata below                                         |
 | `fault`/`errflags`            | only present when `motion=FAULT`: human-readable reason and the raw BLSD20 error bitmask (hex) |
+
+## Firmware metadata and updates
+
+Everything identifying a build and the physical controller lives in one place, [src/FirmwareInfo.h](src/FirmwareInfo.h). Nothing here is duplicated in `Config.h` or anywhere else. `INFO` returns it as a single JSON line (wrapped here for readability — on the wire it is one line):
+
+```json
+{"device":"SkyHub Roof Controller","model":"roof-controller","product":"skyhub-roof-controller",
+ "board":"TEENSY41","serial":"12223410","hardware":"RevA","hardware_revision":1,
+ "firmware":"0.1.0","protocol":1,"build":"2026-07-30T21:28:44Z","git":"7ff1716",
+ "reset_reason":"power_on","reset_raw":1,
+ "features":{"homing":true,"rain_sensor":true,"manual_mode":true,"percent_moves":true,
+             "temperature":true,"watchdog_relay":true,"slow_switches":true,"requires_homing":false}}
+```
+
+### Field categories
+
+Fields fall into four kinds, and SkyHub should treat them very differently:
+
+| Kind                         | Fields                                                                  | Rule                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Human-readable**           | `device`, `hardware`                                                    | display only — never branch on these, they are free to be reworded    |
+| **Machine identifiers**       | `model`, `product`, `board`, `serial`                                   | stable, safe to compare exactly; changing one is a breaking change    |
+| **Compatibility / version**   | `hardware_revision`, `firmware`, `protocol`                             | numeric or ordered — compare before flashing and before parsing       |
+| **Diagnostics**               | `reset_reason`, `reset_raw`, `build`, `git`, `features`                 | observability and capability negotiation, not identity                |
+
+### Fields
+
+| Field               | Type    | Stability                                                          | Intended use by SkyHub Core                                                                                       |
+| --------------------- | --------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `device`            | string  | **unstable** — display name, may be reworded any time              | show in UIs and logs. Never match on it                                                                            |
+| `model`             | string  | **stable** — identifies the hardware model across all revisions    | pick the right firmware image family                                                                              |
+| `product`           | string  | **stable** — identifies this firmware product                      | primary key for "which kind of device is this"                                                                    |
+| `board`             | string  | **stable** — equals the PlatformIO board id in `platformio.ini`     | hard gate before flashing: refuse an image built for another board                                                |
+| `serial`            | string  | **stable per device** — unique per chip, survives reflashing        | identify the individual controller; equals the USB serial number, so it matches the `/dev/serial/by-id` path       |
+| `hardware`          | string  | **unstable** — human label for the same thing as `hardware_revision` | display only                                                                                                      |
+| `hardware_revision` | integer | **stable, monotonic** — RevA=1, RevB=2, …                          | compatibility check before flashing, without string parsing                                                       |
+| `firmware`          | string  | changes every release; same value as `fw_version` in `STATUS`       | show the running version, decide whether an update is needed                                                      |
+| `protocol`          | integer | **stable, monotonic** — bumped only on breaking protocol changes    | check before parsing anything else; refuse to talk to an unknown major                                            |
+| `build`             | string  | changes every build — ISO 8601 UTC                                  | provenance; together with `git` the reliable way to confirm an update actually took effect                        |
+| `git`               | string  | changes every commit — short hash, `-dirty` if the tree was modified | provenance; reject `-dirty` images in production                                                                  |
+| `reset_reason`      | string  | **stable** — closed set, see below                                  | diagnostics after a reconnect                                                                                     |
+| `reset_raw`         | integer | raw `SRC_SRSR` value                                                | diagnostics only, never branch on it — the decoded string is the contract. Useful when `reset_reason` is `unknown`, and it preserves several simultaneously-set bits that the single string cannot |
+| `features`          | object  | **additive only** — keys are never removed or repurposed            | capability negotiation; treat a missing key as `false`                                                            |
+
+`protocol` is bumped only for breaking changes. Adding a `STATUS` field, a command, or a `features` key is additive and leaves it alone — so **SkyHub's parser must tolerate unknown fields and unknown feature keys.**
+
+### `features`
+
+Each key answers "can I rely on this?" so SkyHub never has to infer capability from a version number. Keys are only ever added, never removed.
+
+| Key               | Meaning                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `homing`          | `HOME` command and the homing sequence exist                                                |
+| `rain_sensor`     | `rain=` is present and meaningful in `STATUS`                                                |
+| `manual_mode`     | hold-to-run Manual mode via the rotary switch exists                                        |
+| `percent_moves`   | `PERCENT <0-100>` is accepted                                                                |
+| `temperature`     | `temp_mcu`/`temp_mosfet`/`temp_brake` are present in `STATUS`                                 |
+| `watchdog_relay`  | the Modbus watchdog relay driving the HARD_STOP chain is fitted                              |
+| `slow_switches`   | slowdown switches are fitted (`RoofConfig::AUTO_HAS_SLOW_SWITCHES`); if `false` the roof always runs at `SPEED_AUTO_SLOW` |
+| `requires_homing` | `OPEN`/`CLOSE` are refused until a successful `HOME` (`RoofConfig::AUTO_REQUIRES_HOMING`)     |
+
+The last two mirror build-time policy and genuinely differ between builds. The others are compiled in unconditionally today and exist so a future controller variant can report `false` without a protocol change.
+
+### `reset_reason`
+
+Decoded from the i.MX RT1062 `SRC_SRSR` register. One of:
+
+| Value         | Cause                                                                              |
+| --------------- | ------------------------------------------------------------------------------------ |
+| `power_on`    | plain reset — see the caveat below, this covers more than just power-on             |
+| `software`    | software reset via `SCB_AIRCR` (this firmware never issues one) or a CPU lockup     |
+| `fault`       | the core's automatic reboot after a fault or a bad interrupt vector                 |
+| `watchdog`    | watchdog timer 1, 2 or 3 expired                                                    |
+| `external`    | external reset input                                                                |
+| `security`    | security monitor (CSU)                                                              |
+| `jtag`        | JTAG boundary scan or JTAG debug reset                                              |
+| `temperature` | on-chip temperature sensor tripped                                                  |
+| `unknown`     | no cause bit set, or built for a non-Teensy target                                  |
+
+> **Caveat, Teensy 4.1 specific.** The MKL02 bootloader chip manages 3.3 V supervision and the RESET line, so **power-on, brownout, an external reset pulse and the reboot after a `teensy_loader_cli` flash all arrive as the same plain reset** and are reported as `power_on`. Brownout is not separately detectable on this hardware, and `reset_reason` **cannot** confirm that a firmware update happened. To verify an update, compare `firmware`/`build`/`git` across the reconnect. Where `reset_reason` genuinely earns its keep is telling a clean restart apart from a `watchdog` or `fault` reboot.
+
+### Build provenance
+
+`build` and `git` are injected at compile time by [scripts/build_metadata.py](scripts/build_metadata.py) (wired up via `extra_scripts` in `platformio.ini`); both fall back to `"unknown"` if the firmware is built without it. Because the timestamp changes on every build, every build is a full rebuild — a few seconds for this project.
+
+### Updates
+
+Updates themselves are not part of this firmware: `FWUPDATE` only acknowledges and jumps into HalfKay, and SkyHub Core does the flashing with `teensy_loader_cli`. See the `FWUPDATE` row in the command table for the acknowledgement handshake. Note that HalfKay accepts any image — `board`, `model` and `hardware_revision` must be checked **before** sending `FWUPDATE`, since the firmware cannot refuse a mismatched image itself.

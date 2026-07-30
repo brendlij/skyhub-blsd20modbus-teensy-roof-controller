@@ -1,5 +1,6 @@
 #include "SerialLink.h"
 #include "Config.h"
+#include "FirmwareInfo.h"
 
 SerialLink::SerialLink(StateMachine& sm, CommandLayer& cmd, StatusLed& led, Stream& port)
     : _sm(sm), _cmd(cmd), _led(led), _port(port) {}
@@ -56,7 +57,30 @@ void SerialLink::handleLine(const String& lineIn)
     else if (line == "DISABLE") ok = _cmd.cmdDisable();
     else if (line == "RESETFAULT") ok = _cmd.cmdResetFault();
     else if (line == "RESTART") ok = _cmd.cmdRestart();
-    else if (line == "FWUPDATE") ok = _cmd.cmdFwUpdate();
+    else if (line == "FWUPDATE")
+    {
+        // Handled inline rather than through the shared OK/ERR tail below,
+        // because the acknowledgement has to be on the wire *before* the
+        // jump to the bootloader tears the USB link down -- otherwise SkyHub
+        // only ever sees the port vanish and cannot tell success from a
+        // crash. Blocking the loop here is acceptable: the roof is not
+        // moving (fwUpdateAllowed()) and we are about to reset anyway.
+        if (!_cmd.cmdFwUpdateAllowed())
+        {
+            _port.println("ERR rejected FWUPDATE");
+            return;
+        }
+        _port.println("OK FWUPDATE");
+        _port.flush();
+        delay(RoofConfig::FWUPDATE_ACK_GRACE_MS);
+        _cmd.cmdEnterBootloader(); // does not return
+        return;
+    }
+    else if (line == "INFO")
+    {
+        FirmwareInfo::printJson(_port);
+        return;
+    }
     else if (line.startsWith("PERCENT "))
     {
         long val = line.substring(8).toInt();
@@ -179,7 +203,7 @@ void SerialLink::printStatus()
     _port.print(" rain=");
     _port.print(_sm.rainActive() ? 1 : 0);
     _port.print(" fw_version=");
-    _port.print(RoofConfig::FIRMWARE_VERSION);
+    _port.print(FirmwareInfo::VERSION);
     if (_sm.hasFault())
     {
         _port.print(" fault=");
