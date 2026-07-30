@@ -69,6 +69,7 @@ void StateMachine::begin()
     _limitClose.begin(Pins::LIMIT_CLOSE, RoofConfig::DEBOUNCE_MS);
     _slowOpen.begin(Pins::SLOW_OPEN, RoofConfig::DEBOUNCE_MS);
     _slowClose.begin(Pins::SLOW_CLOSE, RoofConfig::DEBOUNCE_MS);
+    _rain.begin(Pins::RAIN_SENSOR, RoofConfig::DEBOUNCE_MS);
 
     pinMode(Pins::MODBUS_WATCHDOG_RELAY, OUTPUT);
     digitalWrite(Pins::MODBUS_WATCHDOG_RELAY, LOW); // fail-safe until comms are proven healthy
@@ -86,6 +87,7 @@ void StateMachine::updateSensorInputs()
     _limitClose.update();
     _slowOpen.update();
     _slowClose.update();
+    _rain.update();
 }
 
 // Spec Abschnitt 6: Zone kommt ausschließlich aus den vier Endlagen-/

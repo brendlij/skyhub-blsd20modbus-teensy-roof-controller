@@ -31,6 +31,9 @@ namespace Pins
     // Case fan relay, NC contact: LOW = fan on. See SerialLink FAN command.
     constexpr uint8_t CASE_FAN_RELAY = 17;
 
+    // Rain sensor (contact plate via optocoupler): HIGH = dry, LOW = rain detected.
+    constexpr uint8_t RAIN_SENSOR = 18;
+
     // Status RGB LED, common cathode.
     constexpr uint8_t LED_R = 8;
     constexpr uint8_t LED_G = 9;

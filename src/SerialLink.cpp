@@ -176,6 +176,8 @@ void SerialLink::printStatus()
     _port.print(_sm.slowOpenActive() ? 1 : 0);
     _port.print(" slow_close=");
     _port.print(_sm.slowCloseActive() ? 1 : 0);
+    _port.print(" rain=");
+    _port.print(_sm.rainActive() ? 1 : 0);
     _port.print(" fw_version=");
     _port.print(RoofConfig::FIRMWARE_VERSION);
     if (_sm.hasFault())

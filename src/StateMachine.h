@@ -91,6 +91,7 @@ public:
     bool slowOpenActive() const { return _slowOpen.isActive(); }
     bool slowCloseActive() const { return _slowClose.isActive(); }
     bool hardStopActive() const { return _driver.hardStopActive(); }
+    bool rainActive() const { return _rain.isActive(); } // true = rain detected
 
     static const char* modeToString(RoofMode m);
     static const char* motionToString(Motion s);
@@ -125,6 +126,7 @@ private:
     MotionController& _motionCtl;
 
     DebouncedInput _limitOpen, _limitClose, _slowOpen, _slowClose;
+    DebouncedInput _rain;
 
     RoofMode _mode = RoofMode::Auto;
     Motion _motion = Motion::Stopped;
