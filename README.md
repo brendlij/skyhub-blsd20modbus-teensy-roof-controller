@@ -37,8 +37,9 @@ Every tunable lives in [src/Config.h](src/Config.h) — this file documents the 
 | 15      | SLOW_OPEN             | inductive, inboard of LIMIT_OPEN — marks the boundary of the Open Slow Zone                                                                                                            |
 | 16      | MODBUS_WATCHDOG_RELAY | output → relay module `IN`; energized (`HIGH`) only while Modbus comms are healthy                                                                                                      |
 | 17      | CASE_FAN_RELAY        | output → relay module `IN`; fan wired to the relay's NC contact, so `LOW` = fan on (default at boot), `HIGH` = fan off. Toggled via the serial `FAN ON`/`FAN OFF`/`FAN TOGGLE` commands |
+| 18      | RAIN_SENSOR           | rain contact plate via optocoupler; reported upstream as `rain=` in the `STATUS` line, never acted on by the firmware itself                                                            |
 
-All digital inputs are active-low with internal pull-ups (`INPUT_PULLUP`), debounced in software (see [src/DebouncedInput.h](src/DebouncedInput.h)).
+All digital inputs are debounced in software (see [src/DebouncedInput.h](src/DebouncedInput.h)) and active-low with internal pull-ups (`INPUT_PULLUP`). `DebouncedInput::begin()` takes an optional `inverted` flag that makes an input active-high; the pull-up stays on either way, so an inverted input works whether its source drives `HIGH` or just goes high-Z, and a broken wire reads active. Only `RAIN_SENSOR` uses it, via `RoofConfig::RAIN_SENSOR_INVERTED` (currently `true`, i.e. `HIGH` = rain — the plate measures `LOW` while dry).
 
 ## Zones and speed
 
@@ -152,7 +153,7 @@ USB serial (115200 baud) to a Raspberry Pi 5, line-based, newline-terminated, ca
 A `STATUS ...` line is pushed unprompted every `STATUS_REPORT_MS` (500 ms) and immediately on any `Motion` change, in addition to being sent in reply to an explicit `STATUS` command:
 
 ```
-STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW percent=100 target_percent=-1 hall=48213 speed=0 target_speed=0 current=0 motor_enabled=1 homed=1 calib_stale=0 modbus_connected=1 comm_fail=0 temp_mcu=32.5 temp_mosfet=30.1 temp_brake=28.4 led=1 fan=1 hardstop=0 btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0 fw_version=0.1.0
+STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW percent=100 target_percent=-1 hall=48213 speed=0 target_speed=0 current=0 motor_enabled=1 homed=1 calib_stale=0 modbus_connected=1 comm_fail=0 temp_mcu=32.5 temp_mosfet=30.1 temp_brake=28.4 led=1 fan=1 hardstop=0 btn_open=0 btn_stop=0 btn_close=0 sw_auto=1 sw_manual=0 limit_open=1 limit_close=0 slow_open=0 slow_close=0 rain=0 fw_version=0.1.0
 ```
 
 | Field                        | Meaning                                                                                       |
@@ -179,5 +180,6 @@ STATUS mode=AUTO motion=STOPPED position=OPEN direction=NONE zone=OPEN_SLOW perc
 | `sw_auto`/`sw_manual`         | live 3-position rotary switch legs (both `0` = center/`Off`)                                  |
 | `limit_open`/`limit_close`    | live operational limit switch states                                                   |
 | `slow_open`/`slow_close`      | live slowdown switch states                                                            |
+| `rain`                        | `1` if the rain sensor reads wet; polarity per `RoofConfig::RAIN_SENSOR_INVERTED`              |
 | `fw_version`                  | `RoofConfig::FIRMWARE_VERSION`                                                                 |
 | `fault`/`errflags`            | only present when `motion=FAULT`: human-readable reason and the raw BLSD20 error bitmask (hex) |

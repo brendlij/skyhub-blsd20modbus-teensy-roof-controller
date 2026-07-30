@@ -31,7 +31,7 @@ namespace Pins
     // Case fan relay, NC contact: LOW = fan on. See SerialLink FAN command.
     constexpr uint8_t CASE_FAN_RELAY = 17;
 
-    // Rain sensor (contact plate via optocoupler): HIGH = dry, LOW = rain detected.
+    // Rain sensor (contact plate via optocoupler); polarity via RoofConfig::RAIN_SENSOR_INVERTED.
     constexpr uint8_t RAIN_SENSOR = 18;
 
     // Status RGB LED, common cathode.
@@ -54,6 +54,7 @@ namespace RoofConfig
     constexpr bool AUTO_HAS_SLOW_SWITCHES = true;          // false = always SPEED_AUTO_SLOW, never SPEED_AUTO_FAST
     constexpr bool MANUAL_RESPECTS_LIMIT_SWITCHES = false; // false = Manual ignores LIMIT_OPEN/LIMIT_CLOSE entirely
     constexpr bool STOP_USES_SOFT_SLOWDOWN = false;        // false = STOP halts immediately, skipping the SPEED_AUTO_SLOW coast (STOP_SLOWDOWN_DELAY_MS)
+    constexpr bool RAIN_SENSOR_INVERTED = true;            // true = HIGH means rain (measured: plate reads LOW while dry); false = LOW means rain
 
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 1500;
