@@ -350,7 +350,7 @@ void StateMachine::updateRainClosure()
     RainClosure::Inputs in{rainActive(), _mode == RoofMode::Auto,
         !commandsBlocked() && _motion != Motion::Disabled && _driver.modbusConnected(),
         hasFault() && !commandsBlocked(), _position == Position::Closed, _motion == Motion::Closing,
-        moving, _driver.speedValid() && _driver.speed() == 0, closeAllowed()};
+        moving, _driver.motorStopped(), closeAllowed()};
     auto action = _rainClosure.tick(millis(), in);
     if (action == RainClosure::Action::Stop)
     {

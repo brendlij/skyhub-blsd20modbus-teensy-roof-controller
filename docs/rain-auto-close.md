@@ -3,7 +3,7 @@
 Rain at pin 18 is debounced, then must remain active for RAIN_CONFIRM_MS
 (default 5000 ms). In AUTO the controller closes to LIMIT_CLOSE, independent
 of USB/SkyHub. An opening/homing movement is stopped first; reversal requires
-a successful stop command, valid zero-RPM telemetry and 1500 ms settling.
+a successful stop command, a fresh, successfully read BLSD20Status::Stopped (not the logical roof motion state) and 1500 ms settling.
 Failure to establish standstill within 10 s terminates the attempt.
 An existing closing percentage move is promoted to the full closed endpoint.
 The existing 64 s MOVE_TIMEOUT_MS remains unchanged (including an existing
@@ -61,7 +61,7 @@ No software permission command has been introduced in this branch.
 Build: `pio run -e teensy41` (no upload).
 Host policy tests (use a desktop compiler, not arm-none-eabi g++): `g++ -std=c++11 -Wall -Wextra -Werror test/rain_policy.cpp -o rain_policy_test` then run it.
 Bench-test with motor mechanically isolated: wet at boot, rain while opening,
-close endpoint, STOP, OFF/manual, scope loss, Modbus failure, speed read failure,
+close endpoint, STOP, OFF/manual, scope loss, Modbus failure, motor-status read failure,
 timeout and reconnect. Verify sensor polarity and physical stopping distance.
 The policy tests and firmware compilation are not hardware validation.
 

@@ -27,6 +27,7 @@ void BLSD20Driver::applyConfig()
 
 bool BLSD20Driver::startMove(Direction dir, uint16_t speedRpm)
 {
+    _statusValid = false; // Require fresh drive status after a motion/reset command.
     if (dir == Direction::None) return false;
     BLSD20Direction motorDir = (dir == Direction::Opening) ? RoofConfig::DIR_OPEN : RoofConfig::DIR_CLOSE;
     if (!_motor.setDirection(motorDir)) return false;
@@ -45,11 +46,13 @@ bool BLSD20Driver::setSpeed(uint16_t speedRpm)
 
 bool BLSD20Driver::stop()
 {
+    _statusValid = false; // Require fresh drive status after a motion/reset command.
     return _motor.stop();
 }
 
 bool BLSD20Driver::emergencyStop()
 {
+    _statusValid = false; // Require fresh drive status after a motion/reset command.
     return _motor.emergencyStop();
 }
 
@@ -60,6 +63,7 @@ bool BLSD20Driver::resetPositionCounter()
 
 bool BLSD20Driver::saveAndRestart()
 {
+    _statusValid = false; // Require fresh drive status after a motion/reset command.
     bool ok = _motor.saveSettings();
     return _motor.restart() && ok;
 }
@@ -71,6 +75,7 @@ bool BLSD20Driver::saveAndRestart()
 // runtime config (applyConfig()/begin()) once it's back up.
 bool BLSD20Driver::restart()
 {
+    _statusValid = false; // Require fresh drive status after a motion/reset command.
     return _motor.restart();
 }
 
@@ -82,10 +87,11 @@ void BLSD20Driver::pollTelemetry()
 
     _position = _motor.getPosition();
     _speed = _motor.getSpeed();
-    _speedValid = _motor.lastResult() == ModbusResult::Success;
     _current = _motor.getCurrent();
     _errorFlags = _motor.getErrorFlags();
     _motorStatus = _motor.getStatus();
+    _statusValid = _motor.lastResult() == ModbusResult::Success;
+    _statusReadMs = millis();
     _targetSpeed = _motor.getTargetSpeed();
     _lastHasErrorCall = _motor.hasError();
 
