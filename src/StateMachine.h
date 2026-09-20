@@ -6,6 +6,7 @@
 #include "DebouncedInput.h"
 #include "MotionController.h"
 #include "Types.h"
+#include "RainClosure.h"
 
 // Firmware layer: State Machine (Spec Abschnitt 4).
 // The single source of truth (Spec Abschnitt 2 "Der Teensy ist die einzige
@@ -100,6 +101,12 @@ public:
     bool hardStopActive() const { return _driver.hardStopActive(); }
     bool rainActive() const { return _rain.isActive(); } // true = rain detected
 
+    bool closeAllowed() const { return RoofConfig::SCOPE_SAFE_PIN < 0 || _scopeSafe.isActive(); }
+    const char* closeReason() const { return _rainClosure.id ? "rain" : "none"; }
+    const char* closePhase() const { return _rainClosure.phase; }
+    const char* closeBlock() const { return _rainClosure.block; }
+    uint32_t closeId() const { return _rainClosure.id; }
+
     static const char* modeToString(RoofMode m);
     static const char* motionToString(Motion s);
     static const char* positionToString(Position p);
@@ -133,7 +140,11 @@ private:
     MotionController& _motionCtl;
 
     DebouncedInput _limitOpen, _limitClose, _slowOpen, _slowClose;
-    DebouncedInput _rain;
+    void updateRainClosure();
+    bool rainLocked() const { return RoofConfig::RAIN_AUTO_CLOSE && (_rain.isActive() || _rainClosure.locked()); }
+    DebouncedInput _rain, _scopeSafe;
+    RainClosure _rainClosure{RoofConfig::RAIN_CONFIRM_MS, RoofConfig::RAIN_REARM_DRY_MS,
+                             RoofConfig::RAIN_STOP_SETTLE_MS, RoofConfig::RAIN_STOP_TIMEOUT_MS};
 
     RoofMode _mode = RoofMode::Auto;
     Motion _motion = Motion::Stopped;

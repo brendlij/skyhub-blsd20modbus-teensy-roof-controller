@@ -48,7 +48,7 @@ namespace FirmwareInfo
 
     // Firmware version. This is the ONLY place it is defined; STATUS reports
     // it as fw_version= from here.
-    constexpr const char* VERSION = "0.1.0";
+    constexpr const char* VERSION = "0.2.0-rain.1";
 
     // Serial protocol version. Bump on any breaking change to the command
     // set or the STATUS/INFO line format, so SkyHub can detect a controller
@@ -207,6 +207,9 @@ namespace FirmwareInfo
         out.print('{');
         printBool(out, "homing", Features::HOMING);                  out.print(',');
         printBool(out, "rain_sensor", Features::RAIN_SENSOR);        out.print(',');
+        printBool(out, "rain_auto_close", RoofConfig::RAIN_AUTO_CLOSE); out.print(',');
+        printBool(out, "close_reason", true); out.print(',');
+        printBool(out, "scope_safe_gpio", RoofConfig::SCOPE_SAFE_PIN >= 0); out.print(',');
         printBool(out, "manual_mode", Features::MANUAL_MODE);        out.print(',');
         printBool(out, "percent_moves", Features::PERCENT_MOVES);    out.print(',');
         printBool(out, "temperature", Features::TEMPERATURE);        out.print(',');

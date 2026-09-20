@@ -40,6 +40,7 @@ public:
     void pollTemperature(); // MCU/MOSFET/brake temps, rate-limited (slow-changing)
 
     int32_t position() const { return _position; }
+    bool speedValid() const { return _speedValid; }
     uint16_t speed() const { return _speed; }
     uint16_t targetSpeed() const { return _targetSpeed; }
     uint16_t current() const { return _current; }
@@ -54,6 +55,7 @@ public:
     float tempBrake() const { return _tempBrake; }
 
 private:
+    bool _speedValid = false;
     void applyConfig();
 
     BLSD20Modbus& _motor;

@@ -71,6 +71,8 @@ void StateMachine::begin()
     _slowClose.begin(Pins::SLOW_CLOSE, RoofConfig::DEBOUNCE_MS);
     _rain.begin(Pins::RAIN_SENSOR, RoofConfig::DEBOUNCE_MS, RoofConfig::RAIN_SENSOR_INVERTED);
 
+    if (RoofConfig::SCOPE_SAFE_PIN >= 0)
+        _scopeSafe.begin(RoofConfig::SCOPE_SAFE_PIN, RoofConfig::DEBOUNCE_MS, !RoofConfig::SCOPE_SAFE_ACTIVE_LOW);
     pinMode(Pins::MODBUS_WATCHDOG_RELAY, OUTPUT);
     digitalWrite(Pins::MODBUS_WATCHDOG_RELAY, LOW); // fail-safe until comms are proven healthy
 
@@ -88,6 +90,7 @@ void StateMachine::updateSensorInputs()
     _slowOpen.update();
     _slowClose.update();
     _rain.update();
+    if (RoofConfig::SCOPE_SAFE_PIN >= 0) _scopeSafe.update();
 }
 
 // Spec Abschnitt 6: Zone kommt ausschließlich aus den vier Endlagen-/
@@ -280,6 +283,12 @@ void StateMachine::tick()
     updateBootAndReapplyGates();
     updateWatchdogRelay();
 
+    if (_mode == RoofMode::Auto && !closeAllowed() &&
+        (_motion == Motion::Closing || _motion == Motion::Homing))
+    {
+        enterFault("scope clearance lost");
+    }
+
     // Hard safety cutoff even under manual (hold) control, if enabled.
     if (RoofConfig::MANUAL_RESPECTS_LIMIT_SWITCHES && _mode == RoofMode::Manual)
     {
@@ -331,10 +340,35 @@ void StateMachine::tick()
     default:
         break;
     }
+    updateRainClosure();
+}
+
+void StateMachine::updateRainClosure()
+{
+    if (!RoofConfig::RAIN_AUTO_CLOSE) return;
+    const bool moving = _motion == Motion::Opening || _motion == Motion::Closing || _motion == Motion::Homing;
+    RainClosure::Inputs in{rainActive(), _mode == RoofMode::Auto,
+        !commandsBlocked() && _motion != Motion::Disabled && _driver.modbusConnected(),
+        hasFault() && !commandsBlocked(), _position == Position::Closed, _motion == Motion::Closing,
+        moving, _driver.speedValid() && _driver.speed() == 0, closeAllowed()};
+    auto action = _rainClosure.tick(millis(), in);
+    if (action == RainClosure::Action::Stop)
+    {
+        _percentMoveActive = false;
+        _stopRequestedMs = 0;
+        if (!_motionCtl.commandStop(false)) { enterFault("rain stop failed"); _rainClosure.fail("stop_failed"); }
+        else if (!hasFault() && _motion != Motion::Disabled) _motion = Motion::Stopped;
+    }
+    else if (action == RainClosure::Action::Close)
+    {
+        if (requestClose()) _rainClosure.accepted();
+        else _rainClosure.fail(lastRejectReason());
+    }
 }
 
 void StateMachine::setMode(RoofMode mode)
 {
+    if (mode != _mode && mode != RoofMode::Auto && _rainClosure.active()) requestStop();
     _mode = mode;
     // Lockout: force-stop any move that was already running rather than
     // just refusing new ones, so turning the switch to Off is an
@@ -350,6 +384,7 @@ void StateMachine::setMode(RoofMode mode)
 
 bool StateMachine::requestOpen()
 {
+    if (rainLocked()) { _lastRejectReason = "rain_lockout"; return false; }
     _lastRejectReason = "";
     if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
     if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
@@ -388,6 +423,7 @@ bool StateMachine::requestOpen()
 
 bool StateMachine::requestClose()
 {
+    if (!closeAllowed()) { _lastRejectReason = "scope_not_safe"; return false; }
     _lastRejectReason = "";
     if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
     if (_mode != RoofMode::Auto) { _lastRejectReason = "wrong_mode"; return false; }
@@ -422,6 +458,9 @@ bool StateMachine::requestClose()
 
 bool StateMachine::requestMoveToPercent(uint8_t percent)
 {
+    // Rain must always close to the physical endpoint, never a percentage target.
+    if (rainLocked()) { _lastRejectReason = "rain_lockout"; return false; }
+    if (!closeAllowed()) { _lastRejectReason = "scope_not_safe"; return false; }
     _lastRejectReason = "";
     if (percent > 100) { _lastRejectReason = "invalid_percent"; return false; }
     if (commandsBlocked()) { _lastRejectReason = "booting"; return false; }
@@ -466,6 +505,7 @@ bool StateMachine::requestMoveToPercent(uint8_t percent)
 // completed in tick()); every other state stops the motor immediately.
 bool StateMachine::requestStop()
 {
+    _rainClosure.cancel();
     _percentMoveActive = false;
     if (_motion == Motion::Opening || _motion == Motion::Closing)
     {
@@ -494,6 +534,7 @@ bool StateMachine::requestStop()
 
 bool StateMachine::requestHome()
 {
+    if (rainLocked() || !closeAllowed()) return false;
     if (commandsBlocked()) return false;
     if (_mode == RoofMode::Off) return false;
     if (_motion != Motion::Stopped) return false;

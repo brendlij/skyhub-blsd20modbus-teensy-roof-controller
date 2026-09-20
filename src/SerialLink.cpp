@@ -202,6 +202,14 @@ void SerialLink::printStatus()
     _port.print(_sm.slowCloseActive() ? 1 : 0);
     _port.print(" rain=");
     _port.print(_sm.rainActive() ? 1 : 0);
+    _port.print(" rain_auto=");
+    _port.print(RoofConfig::RAIN_AUTO_CLOSE ? 1 : 0);
+    _port.print(" close_allowed=");
+    _port.print(_sm.closeAllowed() ? 1 : 0);
+    _port.print(" close_reason="); _port.print(_sm.closeReason());
+    _port.print(" close_phase="); _port.print(_sm.closePhase());
+    _port.print(" close_block="); _port.print(_sm.closeBlock());
+    _port.print(" close_id="); _port.print(_sm.closeId());
     _port.print(" fw_version=");
     _port.print(FirmwareInfo::VERSION);
     if (_sm.hasFault())

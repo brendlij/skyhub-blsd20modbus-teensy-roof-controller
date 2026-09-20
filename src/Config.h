@@ -56,6 +56,17 @@ namespace RoofConfig
     constexpr bool STOP_USES_SOFT_SLOWDOWN = false;        // false = STOP halts immediately, skipping the SPEED_AUTO_SLOW coast (STOP_SLOWDOWN_DELAY_MS)
     constexpr bool RAIN_SENSOR_INVERTED = true;            // true = HIGH means rain (measured: plate reads LOW while dry); false = LOW means rain
 
+    // Autonomous rain protection runs in AUTO only; OFF/manual never start it.
+    constexpr bool RAIN_AUTO_CLOSE = true;
+    constexpr uint32_t RAIN_CONFIRM_MS = 1000;
+    constexpr uint32_t RAIN_REARM_DRY_MS = 30000;
+    constexpr uint32_t RAIN_STOP_SETTLE_MS = 1500;
+    constexpr uint32_t RAIN_STOP_TIMEOUT_MS = 10000;
+    // Optional dedicated contact: -1 disables. Choose a FREE pin after wiring review.
+    // INPUT_PULLUP, default active LOW => disconnected wire does NOT grant clearance.
+    constexpr int SCOPE_SAFE_PIN = -1;
+    constexpr bool SCOPE_SAFE_ACTIVE_LOW = true;
+
     // Speeds in rpm, per BLSD20Modbus::setSpeed().
     constexpr uint16_t SPEED_AUTO_FAST = 1500;
     constexpr uint16_t SPEED_AUTO_SLOW = 500;

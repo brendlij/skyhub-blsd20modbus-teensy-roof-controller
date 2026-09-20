@@ -272,3 +272,7 @@ Decoded from the i.MX RT1062 `SRC_SRSR` register. One of:
 ### Updates
 
 Updates themselves are not part of this firmware: `FWUPDATE` only acknowledges and jumps into HalfKay, and SkyHub Core does the flashing with `teensy_loader_cli`. See the `FWUPDATE` row in the command table for the acknowledgement handshake. Note that HalfKay accepts any image — `board`, `model` and `hardware_revision` must be checked **before** sending `FWUPDATE`, since the firmware cannot refuse a mismatched image itself.
+
+## Rain protection
+
+See [autonomous rain closure](docs/rain-auto-close.md) for configuration, status fields and bench tests.

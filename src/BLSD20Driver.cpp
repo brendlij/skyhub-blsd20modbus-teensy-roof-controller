@@ -82,6 +82,7 @@ void BLSD20Driver::pollTelemetry()
 
     _position = _motor.getPosition();
     _speed = _motor.getSpeed();
+    _speedValid = _motor.lastResult() == ModbusResult::Success;
     _current = _motor.getCurrent();
     _errorFlags = _motor.getErrorFlags();
     _motorStatus = _motor.getStatus();
