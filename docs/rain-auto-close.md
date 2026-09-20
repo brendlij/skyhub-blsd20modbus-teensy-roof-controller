@@ -1,7 +1,7 @@
 # Autonomous rain closure (feature branch)
 
 Rain at pin 18 is debounced, then must remain active for RAIN_CONFIRM_MS
-(default 1000 ms). In AUTO the controller closes to LIMIT_CLOSE, independent
+(default 5000 ms). In AUTO the controller closes to LIMIT_CLOSE, independent
 of USB/SkyHub. An opening/homing movement is stopped first; reversal requires
 a successful stop command, valid zero-RPM telemetry and 1500 ms settling.
 Failure to establish standstill within 10 s terminates the attempt.

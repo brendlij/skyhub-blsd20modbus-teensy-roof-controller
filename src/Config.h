@@ -58,7 +58,7 @@ namespace RoofConfig
 
     // Autonomous rain protection runs in AUTO only; OFF/manual never start it.
     constexpr bool RAIN_AUTO_CLOSE = true;
-    constexpr uint32_t RAIN_CONFIRM_MS = 1000;
+    constexpr uint32_t RAIN_CONFIRM_MS = 5000;
     constexpr uint32_t RAIN_REARM_DRY_MS = 30000;
     constexpr uint32_t RAIN_STOP_SETTLE_MS = 1500;
     constexpr uint32_t RAIN_STOP_TIMEOUT_MS = 10000;
