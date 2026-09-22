@@ -11,7 +11,9 @@ closing move's elapsed time). No opening/homing/percentage commands during rain.
 
 STOP cancels an active rain attempt. Faults and aborted attempts do not restart
 on RESETFAULT, reconnect or a mode change. A new attempt is armed only after
-30 s continuously dry followed by confirmed rain. Drying during closure does
+30 s continuously dry followed by confirmed rain. An attempt still waiting
+in pending expires after the same 30 s dry interval, so a blocked attempt
+cannot fire hours later when the mode switch returns to AUTO. Drying during closure does
 not cancel the close. No automatic reopening. Already closed is confirmed
 without moving. OFF, MANUAL, DISABLED and boot/reapply gates are respected.
 Manual hold-to-run behavior is unchanged; rain automation runs only in AUTO.
@@ -36,7 +38,11 @@ rain_auto=1 close_allowed=1 close_reason=rain close_phase=closing close_block=no
 ```
 
 close_phase: idle, pending, stopping, blocked, closing, closed, interrupted,
-error. close_block is a single token (wrong_mode, not_ready, scope_not_safe,
+expired, error. An attempt that never started because it stayed blocked
+reaches expired once the rain that triggered it has been gone for
+RAIN_REARM_DRY_MS: it must not close for weather that has passed, and it
+must not keep the open lockout in dry conditions. close_block is a single
+token (wrong_mode, not_ready, scope_not_safe,
 controller_fault, stop_timeout, stop_failed, stop or the rejected command reason).
 closed requires the physical endpoint and stopped logical motion, never percent.
 These describe the LAST rain episode, not every manual close; manual actions

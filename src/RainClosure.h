@@ -27,6 +27,15 @@ public:
             armed = false; ++id; state = Pending; phase = "pending"; block = "none";
         }
         if (!active()) return Action::None;
+        // A pending attempt goes stale once the rain that triggered it is
+        // long gone: closing for it would be a surprise movement, and
+        // holding the open lockout would leave the roof shut in dry
+        // weather. Same threshold that arms a new attempt, so one expires
+        // exactly when a fresh one could begin.
+        if (state == Pending && !i.wet && uint32_t(now-edgeAt) >= dryMs) {
+            state = Terminal; phase = "expired"; block = "none";
+            return Action::None;
+        }
         if (i.fault) { fail("controller_fault"); return Action::None; }
         if (i.closed && !i.moving) { state = Terminal; phase = "closed"; block = "none"; return Action::None; }
         if (!i.automatic || !i.ready || !i.safe) {

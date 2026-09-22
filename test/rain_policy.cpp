@@ -48,5 +48,17 @@ int main() {
       assert(r.tick(t+2500,i)==A::Close); }
     { auto r=policy(); auto i=normal(); wet(r,i); r.tick(1000,i); r.fail("comm_error");
       assert(r.tick(100000,i)==A::None); assert(!strcmp(r.block,"comm_error")); }
-    std::cout << "12 rain policy scenarios passed\n";
+    // Blocked while it rains, rain ends, AUTO returns much later: the stale
+    // attempt must expire rather than close for weather that is long gone,
+    // and it must release the open lockout while it is dry.
+    { auto r=policy(); auto i=normal(); i.automatic=false; wet(r,i);
+      assert(r.tick(1000,i)==A::None); assert(!strcmp(r.block,"wrong_mode"));
+      assert(r.locked()); i.wet=false; r.tick(2000,i);
+      assert(r.tick(31999,i)==A::None); assert(r.locked());
+      assert(r.tick(32000,i)==A::None); assert(!strcmp(r.phase,"expired"));
+      assert(!r.locked()); // open lockout gone once the attempt expired
+      i.automatic=true; assert(r.tick(500000,i)==A::None);
+      // A fresh episode still arms normally afterwards.
+      i.wet=true; r.tick(501000,i); assert(r.tick(502000,i)==A::Stop); assert(r.id==2); }
+    std::cout << "13 rain policy scenarios passed\n";
 }
